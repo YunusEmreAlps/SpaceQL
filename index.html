@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SQLSpace — Interactive SQL Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #0d1b2a;
+      }
+
+      /* Make the Monaco editor fill its container */
+      #editor {
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Canvas fills the scene pane */
+      #scene-pane canvas {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+      }
+
+      /* Scrollbar styling */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0d1b2a;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #1a3a5c;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #00add8;
+      }
+
+      /* Terminal output scrollbar */
+      #terminal-output::-webkit-scrollbar {
+        width: 8px;
+      }
+      #terminal-output::-webkit-scrollbar-track {
+        background: #0d1b2a;
+      }
+      #terminal-output::-webkit-scrollbar-thumb {
+        background: #1a3a5c;
+        border-radius: 4px;
+      }
+      #terminal-output::-webkit-scrollbar-thumb:hover {
+        background: #00add8;
+      }
+
+      /* Dropdown menu */
+      #examples-menu {
+        display: none;
+        position: absolute;
+        bottom: 100%;
+        left: 0;
+        min-width: 220px;
+        margin-bottom: 4px;
+      }
+      #examples-menu.open {
+        display: block;
+      }
+
+      .speed-btn.active {
+        background: #00add8;
+        color: #0d1b2a;
+      }
+    </style>
+
+    <!-- Import map: Three.js ES modules -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/"
+        }
+      }
+    </script>
+
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <!-- sql.js for real SQL execution -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.min.js"></script>
+
+    <!-- Monaco loader -->
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
+  </head>
+
+  <body
+    class="bg-[#0D1B2A] text-white select-none"
+    style="height: 100vh; display: flex; flex-direction: column"
+  >
+    <!-- ── TOP BAR ──────────────────────────────────────────────────────── -->
+    <header
+      class="flex items-center justify-between px-4 py-2 border-b border-[#1A3A5C] shrink-0"
+    >
+      <div class="flex items-center gap-3">
+        <a
+          href="index.html"
+          class="text-[#00ADD8] hover:text-white transition-colors text-xl font-bold"
+        >
+          SQLSpace</a
+        >
+        <span class="text-[#1A3A5C]">|</span>
+        <span class="text-[#7EC8E3] text-sm font-mono">Visual SQL Editor</span>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-[#4A6A8A] font-mono">
+        <span id="parse-status">Ready</span>
+      </div>
+    </header>
+
+    <!-- ── MAIN LAYOUT: editor | scene ──────────────────────────────────── -->
+    <main class="flex flex-1 overflow-hidden">
+      <!-- LEFT: Code editor panel -->
+      <div
+        class="flex flex-col border-r border-[#1A3A5C]"
+        style="width: 42%; min-width: 320px"
+      >
+        <!-- Editor area -->
+        <div id="editor" class="flex-1"></div>
+
+        <!-- Editor bottom toolbar -->
+        <div
+          class="flex items-center gap-2 px-3 py-2 border-t border-[#1A3A5C] bg-[#0F2337] shrink-0"
+        >
+          <div class="relative">
+            <button
+              id="examples-btn"
+              class="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors"
+            >
+              Examples ▾
+            </button>
+            <div
+              id="examples-menu"
+              class="bg-[#0F2337] border border-[#1A3A5C] rounded-lg shadow-xl z-50 overflow-hidden"
+            >
+              <!-- Populated by JS -->
+            </div>
+          </div>
+          <button
+            id="btn-run"
+            class="px-4 py-1.5 rounded text-xs font-mono bg-[#00ADD8] text-[#0D1B2A] font-bold hover:bg-[#00D4FF] transition-colors ml-auto"
+          >
+            ▶ Run
+          </button>
+          <button
+            id="btn-clear"
+            class="px-3 py-1.5 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#EF5350] hover:text-[#EF5350] transition-colors"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- RIGHT: 3D scene panel -->
+      <div id="scene-pane" class="flex flex-col flex-1 overflow-hidden">
+        <!-- Scene canvas container -->
+        <div
+          id="canvas-container"
+          class="relative overflow-hidden"
+          style="height: 60%"
+        >
+          <!-- Canvas injected here by JS -->
+
+          <!-- Camera hint overlay -->
+          <div
+            id="camera-hint"
+            class="absolute bottom-4 right-4 text-xs text-[#4A6A8A] font-mono pointer-events-none"
+          >
+            Drag → rotate &nbsp;·&nbsp; Scroll → zoom &nbsp;·&nbsp; Right drag →
+            pan
+          </div>
+        </div>
+
+        <!-- Terminal output panel -->
+        <div
+          class="flex flex-col border-t border-[#1A3A5C] bg-[#0D1B2A]"
+          style="height: 40%"
+        >
+          <div
+            class="flex items-center justify-between px-3 py-1.5 border-b border-[#1A3A5C] bg-[#0F2337]"
+          >
+            <span class="text-[#7EC8E3] text-xs font-mono font-bold"
+              >Terminal Output</span
+            >
+            <button
+              id="btn-clear-terminal"
+              class="px-2 py-0.5 rounded text-xs font-mono text-[#4A6A8A] hover:text-[#EF5350] transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+          <div
+            id="terminal-output"
+            class="flex-1 overflow-y-auto px-3 py-2 font-mono text-sm text-[#E8F4FD]"
+          >
+            <div class="text-[#4A6A8A] text-xs">
+              Ready. Run your code to see output...
+            </div>
+          </div>
+        </div>
+
+        <!-- Scene bottom toolbar -->
+        <div
+          class="flex items-center gap-2 px-3 py-2 border-t border-[#1A3A5C] bg-[#0F2337] shrink-0"
+        >
+          <button
+            id="btn-pause"
+            class="px-3 py-1.5 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors"
+          >
+            ⏸ Pause
+          </button>
+          <button
+            id="btn-reset"
+            class="px-3 py-1.5 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors"
+          >
+            ↩ Reset
+          </button>
+          
+          <button
+            id="btn-view-mode"
+            class="px-3 py-1.5 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors"
+            title="Toggle 2D/3D view for JOIN visualization"
+          >
+            3D View
+          </button>
+
+          <span class="text-[#1A3A5C] mx-1">|</span>
+          <span class="text-xs text-[#4A6A8A] font-mono">Speed:</span>
+          <button
+            data-speed="0.5"
+            class="speed-btn px-2 py-1 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] transition-colors"
+          >
+            0.5×
+          </button>
+          <button
+            data-speed="1"
+            class="speed-btn active px-2 py-1 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] transition-colors"
+          >
+            1×
+          </button>
+          <button
+            data-speed="2"
+            class="speed-btn px-2 py-1 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] transition-colors"
+          >
+            2×
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- ── APP SCRIPT ────────────────────────────────────────────────────── -->
+    <script type="module">
+      import * as THREE from "three";
+      import {
+        scene,
+        camera,
+        renderer,
+        labelRenderer,
+        composer,
+        controls,
+        getCanvas,
+        getLabelRenderer,
+      } from "./js/core/scene.js";
+      import { parseSQL } from "./js/engine/parser.js";
+      import OpenWorldEngine from "./js/engine/engine.js";
+      import { debounce } from "./js/core/utils.js";
+      import { EXAMPLES } from "./js/data/examples.js";
+      import { SQL_SCHEMA } from "./js/data/tables.js";
+      import { getSuggestions } from "./js/data/suggestions.js";
+
+      // ── Scene setup ─────────────────────────────────────────────────────
+      const container = document.getElementById("canvas-container");
+      const canvas = getCanvas();
+      const labelRendererElement = getLabelRenderer();
+      
+      // Mount WebGL canvas
+      container.insertBefore(canvas, container.firstChild);
+      canvas.style.position = "absolute";
+      canvas.style.inset = "0";
+      
+      // Mount CSS2D label renderer
+      container.insertBefore(labelRendererElement, container.firstChild);
+      labelRendererElement.style.position = "absolute";
+      labelRendererElement.style.inset = "0";
+      labelRendererElement.style.pointerEvents = "none";
+
+      // Resize renderer to scene pane (not full window)
+      function resizeToPane() {
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        renderer.setSize(w, h);
+        labelRenderer.setSize(w, h);
+        composer.setSize(w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+      resizeToPane();
+      window.addEventListener("resize", resizeToPane);
+
+      // ── Engine ───────────────────────────────────────────────────────────
+      const engine = new OpenWorldEngine(scene, camera);
+
+      // ── Animation loop ───────────────────────────────────────────────────
+      const clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        const delta = clock.getDelta();
+        controls.update();
+        engine.tick(delta);
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      // Populate examples dropdown
+      const menu = document.getElementById("examples-menu");
+      EXAMPLES.forEach((ex) => {
+        const btn = document.createElement("button");
+        btn.className =
+          "w-full text-left px-4 py-2 text-sm font-mono text-[#7EC8E3] hover:bg-[#1A3A5C] hover:text-white transition-colors";
+        btn.textContent = ex.label;
+        btn.addEventListener("click", () => {
+          editor.setValue(ex.code);
+          menu.classList.remove("open");
+        });
+        menu.appendChild(btn);
+      });
+
+      // Toggle examples dropdown
+      const examplesBtn = document.getElementById("examples-btn");
+      examplesBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        menu.classList.toggle("open");
+      });
+      document.addEventListener("click", () => menu.classList.remove("open"));
+
+      // ── Playback controls ────────────────────────────────────────────────
+      let isPaused = false;
+      const btnPause = document.getElementById("btn-pause");
+      btnPause.addEventListener("click", () => {
+        isPaused = !isPaused;
+        if (isPaused) {
+          engine.pause();
+          btnPause.textContent = "▶ Resume";
+          btnPause.classList.add("border-[#00ADD8]", "text-[#00ADD8]");
+        } else {
+          engine.resume();
+          btnPause.textContent = "⏸ Pause";
+          btnPause.classList.remove("border-[#00ADD8]", "text-[#00ADD8]");
+        }
+      });
+
+      document.getElementById("btn-reset").addEventListener("click", () => {
+        engine.reset();
+        if (window.editor) engine.update(parseSQL(editor.getValue()));
+      });
+
+      // View mode toggle (2D/3D)
+      let currentViewMode = '3d';
+      const btnViewMode = document.getElementById("btn-view-mode");
+      btnViewMode.addEventListener("click", () => {
+        currentViewMode = currentViewMode === '3d' ? '2d' : '3d';
+        btnViewMode.textContent = currentViewMode === '3d' ? 'Switch to 2D' : 'Switch to 3D';
+        
+        // Update visualizer view mode
+        if (engine.visualizers && engine.visualizers.select) {
+          engine.visualizers.select.setViewMode(currentViewMode);
+        }
+      });
+
+      document.querySelectorAll(".speed-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll(".speed-btn")
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          engine.setSpeed(parseFloat(btn.dataset.speed));
+        });
+      });
+
+      document.getElementById("btn-clear").addEventListener("click", () => {
+        if (window.editor)
+          editor.setValue("");
+      });
+
+      // ── Terminal Output ──────────────────────────────────────────────────
+      const terminalOutput = document.getElementById("terminal-output");
+
+      function clearTerminal() {
+        terminalOutput.innerHTML =
+          '<div class="text-[#4A6A8A] text-xs">Ready. Run your code to see output...</div>';
+      }
+
+      function printToTerminal(text, color = "#E8F4FD") {
+        const line = document.createElement("div");
+        line.className = "py-0.5";
+        line.style.color = color;
+        line.textContent = text;
+        terminalOutput.appendChild(line);
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+      }
+
+      document
+        .getElementById("btn-clear-terminal")
+        .addEventListener("click", clearTerminal);
+
+      // ── Run button (manual execution with real SQL) ──────────────────────
+      document.getElementById("btn-run").addEventListener("click", async () => {
+        if (!window.editor || !db) return;
+
+        const code = editor.getValue().trim();
+        const statusEl = document.getElementById("parse-status");
+
+        try {
+          engine.reset();
+          clearTerminal();
+
+          // Execute real SQL query
+          printToTerminal(`> ${code}`, "#7EC8E3");
+          printToTerminal('', '#E8F4FD'); // Empty line
+
+          const results = db.exec(code);
+
+          if (results.length > 0) {
+            // Display results in terminal
+            results.forEach((result, idx) => {
+              const { columns, values } = result;
+              
+              printToTerminal(`Query ${idx + 1} Results:`, "#00ADD8");
+              printToTerminal(`─────────────────────────────────────`, "#1A3A5C");
+              
+              // Header
+              printToTerminal(columns.join(' | '), "#69FF47");
+              printToTerminal('─'.repeat(columns.join(' | ').length), "#1A3A5C");
+              
+              // Rows
+              if (values.length === 0) {
+                printToTerminal('(no rows)', "#4A6A8A");
+              } else {
+                values.forEach(row => {
+                  printToTerminal(row.join(' | '), "#E8F4FD");
+                });
+                printToTerminal('', '#E8F4FD');
+                printToTerminal(`${values.length} row(s) returned`, "#00ADD8");
+              }
+            });
+
+            // Parse for visualization
+            const parsed = parseSQL(code);
+            
+            // Enhance parsed data with real results
+            if (parsed.type === 'SELECT' && parsed.selects.length > 0 && results[0]) {
+              parsed.selects[0].resultColumns = results[0].columns;
+              parsed.selects[0].resultRows = results[0].values;
+            }
+            
+            engine.update(parsed);
+          } else {
+            // Non-SELECT queries (INSERT, UPDATE, DELETE, CREATE, etc.)
+            const upperCode = code.toUpperCase();
+            if (upperCode.startsWith('INSERT')) {
+              printToTerminal('✓ Row inserted successfully', "#69FF47");
+            } else if (upperCode.startsWith('UPDATE')) {
+              printToTerminal('✓ Row(s) updated successfully', "#69FF47");
+            } else if (upperCode.startsWith('DELETE')) {
+              printToTerminal('✓ Row(s) deleted successfully', "#69FF47");
+            } else if (upperCode.startsWith('CREATE')) {
+              printToTerminal('✓ Table created successfully', "#69FF47");
+            } else {
+              printToTerminal('✓ Query executed successfully', "#69FF47");
+            }
+
+            // Still parse and visualize
+            const parsed = parseSQL(code);
+            engine.update(parsed);
+          }
+
+          statusEl.textContent = "✅ Query executed";
+          statusEl.className = "text-[#69FF47]";
+
+          setTimeout(() => {
+            statusEl.textContent = "Ready";
+            statusEl.className = "text-[#4A6A8A]";
+          }, 2000);
+        } catch (error) {
+          statusEl.textContent = `❌ SQL Error`;
+          statusEl.className = "text-[#EF5350]";
+          printToTerminal(`Error: ${error.message}`, "#EF5350");
+          console.error("SQL error:", error);
+        }
+      });
+
+      // ── SQL.js Database Setup ────────────────────────────────────────────
+      let db = null;
+      let SQL = null;
+
+      async function initDatabase() {
+        try {
+          SQL = await initSqlJs({
+            locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
+          });
+          db = new SQL.Database();
+
+          // Create sample tables with data
+          db.run(SQL_SCHEMA);
+
+          printToTerminal('✓ Database initialized with sample data', '#69FF47');
+          printToTerminal('Tables: users, orders', '#7EC8E3');
+          return true;
+        } catch (err) {
+          console.error('Database initialization error:', err);
+          printToTerminal(`Database error: ${err.message}`, '#EF5350');
+          return false;
+        }
+      }
+
+      // ── Monaco Editor ────────────────────────────────────────────────────
+      require.config({
+        paths: {
+          vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs",
+        },
+      });
+
+      require(["vs/editor/editor.main"], function () {
+        // Monaco API is available only after editor.main is loaded.
+        monaco.editor.defineTheme("gopher-space", {
+          base: "vs-dark",
+          inherit: true,
+          rules: [
+            { token: "keyword", foreground: "569CD6" },
+            { token: "identifier", foreground: "9CDCFE" },
+            { token: "number", foreground: "B5CEA8" },
+            { token: "string", foreground: "CE9178" },
+            { token: "comment", foreground: "6A9955", fontStyle: "italic" },
+            { token: "operator", foreground: "D4D4D4" },
+          ],
+          colors: {
+            "editor.background": "#0D1B2A",
+            "editor.foreground": "#E8F4FD",
+            "editorCursor.foreground": "#E8F4FD",
+            "editor.lineHighlightBackground": "#1A3A5C",
+            "editorLineNumber.foreground": "#4A6A8A",
+            "editor.selectionBackground": "#264F78",
+            "editor.inactiveSelectionBackground": "#264F78AA",
+          },
+        });
+
+        window.editor = monaco.editor.create(
+          document.getElementById("editor"),
+          {
+            value: EXAMPLES[0].code,
+            language: "sql",
+            theme: "gopher-space",
+            minimap: { enabled: false },
+            fontSize: 14,
+            lineNumbers: "on",
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            padding: { top: 12, bottom: 12 },
+            fontFamily:
+              '"Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, monospace',
+            renderLineHighlight: "gutter",
+            bracketPairColorization: { enabled: true },
+            suggestOnTriggerCharacters: true,
+            quickSuggestions: {
+              other: true,
+              comments: false,
+              strings: false,
+            },
+            parameterHints: { enabled: true },
+            wordBasedSuggestions: true,
+            autoClosingBrackets: "always",
+            autoClosingQuotes: "always",
+            formatOnType: true,
+            formatOnPaste: true,
+          },
+        );
+
+        // ── SQL Language Autocomplete ────────────────────────────────────────
+        const suggestions = getSuggestions(monaco);
+        monaco.languages.registerCompletionItemProvider("sql", {
+          provideCompletionItems: (model, position) => {
+            return { suggestions: suggestions };
+          },
+        });
+
+        const status = document.getElementById("parse-status");
+
+        const onCodeChange = debounce(() => {
+          const code = editor.getValue();
+          try {
+            const parsed = parseSQL(code);
+            engine.update(parsed);
+
+            // Show what was detected
+            status.textContent = `${parsed.type} Query`;
+            status.style.color = "#00ADD8";
+          } catch (e) {
+            status.textContent = "Parse error";
+            status.style.color = "#EF5350";
+            console.error("Parse error:", e);
+          }
+        }, 300);
+
+        editor.onDidChangeModelContent(onCodeChange);
+
+        // Initial parse
+        onCodeChange();
+
+        // Initialize database after editor is ready
+        initDatabase();
+      });
+    </script>
+  </body>
+</html>
