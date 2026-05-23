@@ -281,12 +281,12 @@ AND/OR another_condition`,
 };
 
 export const HELP_CATEGORIES = [
-  { id: 'SELECT', label: 'SELECT', icon: '' },
-  { id: 'INSERT', label: 'INSERT', icon: '' },
-  { id: 'UPDATE', label: 'UPDATE', icon: '' },
-  { id: 'DELETE', label: 'DELETE', icon: '' },
-  { id: 'JOIN', label: 'JOIN', icon: '' },
-  { id: 'CREATE', label: 'CREATE TABLE', icon: '' },
-  { id: 'AGGREGATE', label: 'Aggregate Functions', icon: '' },
-  { id: 'WHERE', label: 'WHERE', icon: '' }
+  { id: 'SELECT', label: 'SELECT', icon: 'search' },
+  { id: 'INSERT', label: 'INSERT', icon: 'add_circle' },
+  { id: 'UPDATE', label: 'UPDATE', icon: 'edit' },
+  { id: 'DELETE', label: 'DELETE', icon: 'delete' },
+  { id: 'JOIN', label: 'JOIN', icon: 'merge' },
+  { id: 'CREATE', label: 'CREATE TABLE', icon: 'table_chart' },
+  { id: 'AGGREGATE', label: 'Aggregate Functions', icon: 'functions' },
+  { id: 'WHERE', label: 'WHERE', icon: 'filter_alt' }
 ];

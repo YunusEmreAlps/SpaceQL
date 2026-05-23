@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SpaceQL — Interactive SQL Visualizer</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       body {
@@ -41,6 +42,10 @@
           height: 300px !important;
         }
         
+        #diagram-container {
+          height: 300px !important;
+        }
+        
         .terminal-panel {
           height: calc(100% - 300px) !important;
         }
@@ -73,6 +78,10 @@
         }
         
         #canvas-container {
+          height: 60% !important;
+        }
+        
+        #diagram-container {
           height: 60% !important;
         }
         
@@ -304,6 +313,10 @@
           touch-action: manipulation;
         }
         
+        .helper-category-btn .material-icons {
+          font-size: 16px;
+        }
+        
         .helper-category-btn.active {
           border-left: none;
           border-bottom-color: #00ADD8;
@@ -349,6 +362,211 @@
         
         .helper-example {
           padding: 8px;
+        }
+      }
+
+      /* Schema Diagram Styles */
+      .scene-tabs-container {
+        display: flex;
+        gap: 4px;
+        background: #0D1B2A;
+      }
+      
+      .scene-tab {
+        padding: 10px 20px;
+        border: none;
+        background: transparent;
+        border-radius: 8px 8px 0 0;
+        transition: all 0.2s;
+        cursor: pointer;
+        font-weight: 500;
+        position: relative;
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      
+      .scene-tab .material-icons {
+        font-size: 18px;
+      }
+      
+      .scene-tab::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: transparent;
+        transition: all 0.2s;
+      }
+      
+      .scene-tab.active {
+        background: #0F2337;
+        color: #00ADD8;
+      }
+      
+      .scene-tab.active::after {
+        background: #00ADD8;
+      }
+      
+      .scene-tab:hover {
+        background: #1A3A5C;
+        color: #00ADD8;
+      }
+      
+      #diagram-container {
+        display: none;
+        width: 100%;
+        background: #0D1B2A;
+        overflow: auto;
+        padding: 20px;
+        position: relative;
+      }
+      
+      #diagram-container.active {
+        display: block;
+      }
+      
+      #canvas-container.hidden {
+        display: none !important;
+      }
+      
+      .diagram-wrapper {
+        position: relative;
+        min-width: 800px;
+        min-height: 400px;
+      }
+      
+      .table-card {
+        position: absolute;
+        background: #0F2337;
+        border: 2px solid #1A3A5C;
+        border-radius: 8px;
+        min-width: 200px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transition: all 0.2s;
+      }
+      
+      .table-card:hover {
+        border-color: #00ADD8;
+        box-shadow: 0 0 20px rgba(0, 173, 216, 0.4);
+        transform: translateY(-2px);
+      }
+      
+      .table-header {
+        background: #1A3A5C;
+        padding: 12px;
+        border-radius: 6px 6px 0 0;
+        border-bottom: 2px solid #00ADD8;
+        cursor: pointer;
+      }
+      
+      .table-name {
+        font-weight: bold;
+        color: #00ADD8;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .column-list {
+        padding: 8px;
+      }
+      
+      .column-item {
+        padding: 6px 8px;
+        font-size: 0.875rem;
+        font-family: 'Courier New', monospace;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid #1A3A5C;
+      }
+      
+      .column-item:last-child {
+        border-bottom: none;
+      }
+      
+      .column-icon {
+        font-size: 0.9rem;
+      }
+      
+      .column-name {
+        color: #7EC8E3;
+        flex: 1;
+      }
+      
+      .column-type {
+        color: #4A6A8A;
+        font-size: 0.75rem;
+      }
+      
+      .diagram-svg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+      }
+      
+      .table-card {
+        z-index: 1;
+      }
+      
+      @media (max-width: 767px) {
+        #diagram-container {
+          padding: 12px !important;
+        }
+        
+        .diagram-wrapper {
+          min-width: 600px;
+        }
+        
+        .table-card {
+          min-width: 160px;
+        }
+        
+        .table-header {
+          padding: 10px;
+        }
+        
+        .table-name {
+          font-size: 0.9rem;
+        }
+        
+        .column-item {
+          font-size: 0.8rem;
+          padding: 5px 6px;
+        }
+        
+        .scene-tab {
+          padding: 8px 12px;
+          font-size: 0.875rem;
+          min-height: 36px;
+          gap: 4px;
+        }
+        
+        .scene-tab .material-icons {
+          font-size: 16px;
+        }
+        
+        .scene-tab .tab-text {
+          display: none;
+        }
+        
+        .scene-tabs-container {
+          gap: 2px;
+        }
+      }
+      
+      @media (min-width: 768px) {
+        .scene-tab .tab-text {
+          display: inline;
         }
       }
     </style>
@@ -397,7 +615,7 @@
           class="flex items-center gap-1 px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors"
           title="SQL Syntax Helper"
         >
-          <span>?</span>
+          <span class="material-icons text-base md:text-sm">help_outline</span>
           <span class="hidden md:inline">Help</span>
         </button>
         <span class="text-[#4A6A8A]" id="parse-status">Ready</span>
@@ -423,7 +641,9 @@
               id="examples-btn"
               class="flex items-center gap-1 px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors whitespace-nowrap"
             >
-              Examples ▾
+              <span class="material-icons text-sm">code</span>
+              <span>Examples</span>
+              <span class="material-icons text-sm">expand_more</span>
             </button>
             <div
               id="examples-menu"
@@ -434,26 +654,39 @@
           </div>
           <button
             id="btn-run"
-            class="px-4 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono bg-[#00ADD8] text-[#0D1B2A] font-bold hover:bg-[#00D4FF] transition-colors ml-auto whitespace-nowrap"
+            class="flex items-center gap-1 px-4 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono bg-[#00ADD8] text-[#0D1B2A] font-bold hover:bg-[#00D4FF] transition-colors ml-auto whitespace-nowrap"
           >
-            ▶ Run
+            <span class="material-icons text-sm">play_arrow</span>
+            <span>Run</span>
           </button>
           <button
             id="btn-clear"
-            class="px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#EF5350] hover:text-[#EF5350] transition-colors whitespace-nowrap"
+            class="flex items-center gap-1 px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#EF5350] hover:text-[#EF5350] transition-colors whitespace-nowrap"
           >
-            Clear
+            <span class="material-icons text-sm">clear</span>
+            <span>Clear</span>
           </button>
         </div>
       </div>
 
       <!-- RIGHT: 3D scene panel -->
       <div id="scene-pane" class="flex flex-col flex-1 overflow-hidden">
+        <!-- Scene Tabs -->
+        <div class="scene-tabs-container px-3 pt-2 border-b border-[#1A3A5C] shrink-0">
+          <button class="scene-tab active text-sm font-mono" data-tab="scene">
+            <span class="material-icons">view_in_ar</span>
+            <span class="tab-text">Scene</span>
+          </button>
+          <button class="scene-tab text-sm font-mono text-[#7EC8E3]" data-tab="diagram">
+            <span class="material-icons">account_tree</span>
+            <span class="tab-text">Diagram</span>
+          </button>
+        </div>
+        
         <!-- Scene canvas container -->
         <div
           id="canvas-container"
           class="relative overflow-hidden"
-          style="height: 300px"
         >
           <!-- Canvas injected here by JS -->
 
@@ -467,11 +700,18 @@
             <span class="md:hidden">Drag to rotate</span>
           </div>
         </div>
+        
+        <!-- Database Schema Diagram Container -->
+        <div id="diagram-container">
+          <div class="diagram-wrapper" id="diagram-wrapper">
+            <svg class="diagram-svg" id="diagram-svg"></svg>
+            <!-- Table cards will be injected here -->
+          </div>
+        </div>
 
         <!-- Terminal output panel -->
         <div
           class="terminal-panel flex flex-col border-t border-[#1A3A5C] bg-[#0D1B2A]"
-          style="height: calc(100% - 300px)"
         >
           <div
             class="flex items-center justify-between px-2 md:px-3 py-1.5 border-b border-[#1A3A5C] bg-[#0F2337]"
@@ -481,9 +721,10 @@
             >
             <button
               id="btn-clear-terminal"
-              class="px-2 py-1 md:py-0.5 rounded text-xs font-mono text-[#4A6A8A] hover:text-[#EF5350] transition-colors"
+              class="flex items-center gap-1 px-2 py-1 md:py-0.5 rounded text-xs font-mono text-[#4A6A8A] hover:text-[#EF5350] transition-colors"
             >
-              Clear
+              <span class="material-icons" style="font-size: 14px;">clear</span>
+              <span>Clear</span>
             </button>
           </div>
           <div
@@ -502,23 +743,26 @@
         >
           <button
             id="btn-pause"
-            class="px-2 md:px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors whitespace-nowrap"
+            class="flex items-center gap-1 px-2 md:px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors whitespace-nowrap"
           >
-            ⏸ Pause
+            <span class="material-icons text-sm">pause</span>
+            <span>Pause</span>
           </button>
           <button
             id="btn-reset"
-            class="px-2 md:px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors whitespace-nowrap"
+            class="flex items-center gap-1 px-2 md:px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors whitespace-nowrap"
           >
-            ↩ Reset
+            <span class="material-icons text-sm">refresh</span>
+            <span>Reset</span>
           </button>
           
           <button
             id="btn-view-mode"
-            class="px-2 md:px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors whitespace-nowrap"
+            class="flex items-center gap-1 px-2 md:px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors whitespace-nowrap"
             title="Toggle 2D/3D view for JOIN visualization"
           >
-            2D View
+            <span class="material-icons text-sm">crop_square</span>
+            <span>2D View</span>
           </button>
 
           <span class="text-[#1A3A5C] mx-1 hidden sm:inline">|</span>
@@ -553,10 +797,10 @@
           <h2 class="text-base md:text-lg font-bold text-[#00ADD8]">SQL Syntax Helper</h2>
           <button
             id="close-helper"
-            class="px-2 md:px-3 py-1 rounded text-[#7EC8E3] hover:text-[#EF5350] transition-colors text-xl leading-none"
+            class="px-2 md:px-3 py-1 rounded text-[#7EC8E3] hover:text-[#EF5350] transition-colors leading-none"
             title="Close (ESC)"
           >
-            ✕
+            <span class="material-icons">close</span>
           </button>
         </div>
         
@@ -665,6 +909,190 @@
       });
       document.addEventListener("click", () => menu.classList.remove("open"));
 
+      // ── Scene Tab Switching ──────────────────────────────────────────────
+      const sceneTabs = document.querySelectorAll('.scene-tab');
+      const canvasContainer = document.getElementById('canvas-container');
+      const diagramContainer = document.getElementById('diagram-container');
+      
+      sceneTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const tabName = tab.dataset.tab;
+          
+          // Update active tab
+          sceneTabs.forEach(t => {
+            t.classList.remove('active');
+            t.classList.add('text-[#7EC8E3]');
+          });
+          tab.classList.add('active');
+          tab.classList.remove('text-[#7EC8E3]');
+          
+          // Show/hide containers
+          if (tabName === 'scene') {
+            canvasContainer.classList.remove('hidden');
+            diagramContainer.classList.remove('active');
+          } else if (tabName === 'diagram') {
+            canvasContainer.classList.add('hidden');
+            diagramContainer.classList.add('active');
+            // Render diagram when tab is opened
+            if (db) renderDiagram();
+          }
+        });
+      });
+      
+      // ── Database Schema Extraction ───────────────────────────────────────
+      function getSchemaInfo(database) {
+        const tables = [];
+        
+        try {
+          // Get all tables
+          const tableResults = database.exec("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+          
+          if (!tableResults || !tableResults[0]) return tables;
+          
+          tableResults[0].values.forEach(([tableName]) => {
+            // Get column info
+            const columnInfo = database.exec(`PRAGMA table_info(${tableName})`);
+            const foreignKeyInfo = database.exec(`PRAGMA foreign_key_list(${tableName})`);
+            
+            const columns = columnInfo[0] ? columnInfo[0].values.map(col => ({
+              name: col[1],
+              type: col[2],
+              notNull: col[3] === 1,
+              defaultValue: col[4],
+              primaryKey: col[5] === 1
+            })) : [];
+            
+            const foreignKeys = foreignKeyInfo[0] ? foreignKeyInfo[0].values.map(fk => ({
+              column: fk[3],
+              referencedTable: fk[2],
+              referencedColumn: fk[4]
+            })) : [];
+            
+            tables.push({
+              name: tableName,
+              columns: columns,
+              foreignKeys: foreignKeys
+            });
+          });
+        } catch (err) {
+          console.error('Schema extraction error:', err);
+        }
+        
+        return tables;
+      }
+      
+      // ── Diagram Rendering ────────────────────────────────────────────────
+      function renderDiagram() {
+        if (!db) return;
+        
+        const schema = getSchemaInfo(db);
+        const wrapper = document.getElementById('diagram-wrapper');
+        const svg = document.getElementById('diagram-svg');
+        
+        // Clear existing content
+        wrapper.querySelectorAll('.table-card').forEach(el => el.remove());
+        svg.innerHTML = '';
+        
+        if (schema.length === 0) {
+          wrapper.innerHTML = '<p class="text-[#7EC8E3] text-center py-8">No tables found in database</p>';
+          return;
+        }
+        
+        // Position tables (simple horizontal layout)
+        const tablePositions = {};
+        const cardWidth = 220;
+        const cardSpacing = 100;
+        const startX = 50;
+        const startY = 50;
+        
+        schema.forEach((table, index) => {
+          const x = startX + (index * (cardWidth + cardSpacing));
+          const y = startY;
+          tablePositions[table.name] = { x, y };
+          
+          // Create table card
+          const card = document.createElement('div');
+          card.className = 'table-card';
+          card.style.left = `${x}px`;
+          card.style.top = `${y}px`;
+          
+          // Table header
+          const header = document.createElement('div');
+          header.className = 'table-header';
+          header.innerHTML = `
+            <div class="table-name">
+              <span class="material-icons" style="font-size: 18px;">table_view</span>
+              <span>${table.name}</span>
+            </div>
+          `;
+          header.addEventListener('click', () => {
+            if (window.editor) {
+              editor.setValue(`SELECT * FROM ${table.name}`);
+              // Switch back to scene tab
+              sceneTabs[0].click();
+            }
+          });
+          
+          // Column list
+          const columnList = document.createElement('div');
+          columnList.className = 'column-list';
+          
+          table.columns.forEach(col => {
+            const colItem = document.createElement('div');
+            colItem.className = 'column-item';
+            
+            // Determine icon
+            let icon = 'text_fields'; // default
+            if (col.primaryKey) icon = 'key';
+            else if (table.foreignKeys.find(fk => fk.column === col.name)) icon = 'link';
+            else if (col.type.includes('INT')) icon = 'pin';
+            else if (col.type.includes('TEXT') || col.type.includes('VARCHAR')) icon = 'text_fields';
+            else if (col.type.includes('DATE') || col.type.includes('TIME')) icon = 'calendar_today';
+            
+            colItem.innerHTML = `
+              <span class="material-icons column-icon" style="font-size: 16px;">${icon}</span>
+              <span class="column-name">${col.name}</span>
+              <span class="column-type">${col.type}</span>
+            `;
+            columnList.appendChild(colItem);
+          });
+          
+          card.appendChild(header);
+          card.appendChild(columnList);
+          wrapper.appendChild(card);
+        });
+        
+        // Draw foreign key relationships
+        schema.forEach(table => {
+          table.foreignKeys.forEach(fk => {
+            if (tablePositions[table.name] && tablePositions[fk.referencedTable]) {
+              const from = tablePositions[table.name];
+              const to = tablePositions[fk.referencedTable];
+              
+              // Create SVG line
+              const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+              line.setAttribute('x1', from.x + cardWidth / 2);
+              line.setAttribute('y1', from.y + 40);
+              line.setAttribute('x2', to.x + cardWidth / 2);
+              line.setAttribute('y2', to.y + 40);
+              line.setAttribute('stroke', '#00ADD8');
+              line.setAttribute('stroke-width', '2');
+              line.setAttribute('stroke-dasharray', '5,5');
+              line.setAttribute('opacity', '0.6');
+              svg.appendChild(line);
+              
+              // Add arrow marker
+              const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+              marker.setAttribute('cx', to.x + cardWidth / 2);
+              marker.setAttribute('cy', to.y + 40);
+              marker.setAttribute('r', '4');
+              marker.setAttribute('fill', '#00ADD8');
+              svg.appendChild(marker);
+            }
+          });
+        });
+      }
+      
       // ── SQL Helper Modal ─────────────────────────────────────────────────
       const helperModal = document.getElementById("sql-helper-modal");
       const helperCategories = document.getElementById("helper-categories");
@@ -677,7 +1105,7 @@
         // Use short label on mobile, full label on desktop
         const isMobile = window.innerWidth < 768;
         const labelText = category.label;
-        btn.innerHTML = `<span class="mr-1">${category.icon}</span><span>${labelText}</span>`;
+        btn.innerHTML = `<span class="material-icons mr-1" style="font-size: 18px;">${category.icon}</span><span>${labelText}</span>`;
         btn.dataset.category = category.id;
         btn.addEventListener("click", () => {
           // Update active state
@@ -809,11 +1237,11 @@
         isPaused = !isPaused;
         if (isPaused) {
           engine.pause();
-          btnPause.textContent = "▶ Resume";
+          btnPause.innerHTML = '<span class="material-icons text-sm">play_arrow</span><span>Resume</span>';
           btnPause.classList.add("border-[#00ADD8]", "text-[#00ADD8]");
         } else {
           engine.resume();
-          btnPause.textContent = "⏸ Pause";
+          btnPause.innerHTML = '<span class="material-icons text-sm">pause</span><span>Pause</span>';
           btnPause.classList.remove("border-[#00ADD8]", "text-[#00ADD8]");
         }
       });
@@ -828,7 +1256,12 @@
       const btnViewMode = document.getElementById("btn-view-mode");
       btnViewMode.addEventListener("click", () => {
         currentViewMode = currentViewMode === '3d' ? '2d' : '3d';
-        btnViewMode.textContent = currentViewMode === '3d' ? '2D View' : '3D View';
+        
+        if (currentViewMode === '3d') {
+          btnViewMode.innerHTML = '<span class="material-icons text-sm">crop_square</span><span>2D View</span>';
+        } else {
+          btnViewMode.innerHTML = '<span class="material-icons text-sm">view_in_ar</span><span>3D View</span>';
+        }
         
         // Update camera mode
         setCameraMode(currentViewMode);
