@@ -161,8 +161,7 @@ function animate() {
   labelRenderer.render(scene, camera);
 }
 
-// Start animation automatically
-animate();
+// Don't start animation automatically - let the main app control it
 
 // Export API
 export { scene, camera, renderer, labelRenderer, composer, controls, animate };
@@ -186,4 +185,43 @@ export function dispose() {
   controls.dispose();
   renderer.dispose();
   composer.dispose();
+}
+
+// Camera view mode switching
+let currentCameraMode = '3d';
+
+export function setCameraMode(mode) {
+  currentCameraMode = mode;
+  
+  if (mode === '2d') {
+    // 2D top-down view
+    camera.position.set(0, 12, 0);
+    camera.lookAt(0, 0, 0);
+    controls.target.set(0, 0, 0);
+    
+    // Restrict orbit controls for 2D view
+    controls.enableRotate = false;
+    controls.minPolarAngle = 0;
+    controls.maxPolarAngle = 0.01; // Almost top-down
+    controls.minDistance = 8;
+    controls.maxDistance = 20;
+  } else {
+    // 3D perspective view
+    camera.position.set(5, 5, 8);
+    camera.lookAt(0, 0, 0);
+    controls.target.set(0, 0, 0);
+    
+    // Enable full orbit controls
+    controls.enableRotate = true;
+    controls.minPolarAngle = 0;
+    controls.maxPolarAngle = Math.PI / 2;
+    controls.minDistance = 3;
+    controls.maxDistance = 30;
+  }
+  
+  controls.update();
+}
+
+export function getCameraMode() {
+  return currentCameraMode;
 }

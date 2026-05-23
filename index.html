@@ -25,6 +25,62 @@
         height: 100% !important;
       }
 
+      /* Mobile responsive adjustments */
+      @media (max-width: 767px) {
+        #camera-hint {
+          font-size: 10px;
+        }
+        
+        .editor-panel {
+          height: 350px !important;
+          width: 100% !important;
+          min-width: unset !important;
+        }
+        
+        #canvas-container {
+          height: 300px !important;
+        }
+        
+        .terminal-panel {
+          height: calc(100% - 300px) !important;
+        }
+        
+        /* Touch-friendly buttons on mobile */
+        button {
+          min-height: 40px;
+          min-width: 40px;
+          touch-action: manipulation;
+        }
+        
+        /* Examples button more prominent */
+        #examples-btn {
+          font-weight: 600;
+        }
+        
+        /* Run button more prominent */
+        #btn-run {
+          font-weight: 700;
+          font-size: 0.875rem;
+        }
+      }
+      
+      /* Desktop layout */
+      @media (min-width: 768px) {
+        .editor-panel {
+          width: 42% !important;
+          min-width: 320px !important;
+          height: 100% !important;
+        }
+        
+        #canvas-container {
+          height: 60% !important;
+        }
+        
+        .terminal-panel {
+          height: 40% !important;
+        }
+      }
+
       /* Scrollbar styling */
       ::-webkit-scrollbar {
         width: 6px;
@@ -63,9 +119,24 @@
         left: 0;
         min-width: 220px;
         margin-bottom: 4px;
+        max-height: 400px;
+        overflow-y: auto;
       }
       #examples-menu.open {
         display: block;
+      }
+      
+      @media (max-width: 767px) {
+        #examples-menu {
+          min-width: 200px;
+          max-height: 300px;
+        }
+        
+        #examples-menu button {
+          padding: 12px 16px;
+          font-size: 0.875rem;
+          min-height: 44px;
+        }
       }
 
       .speed-btn.active {
@@ -100,41 +171,41 @@
   >
     <!-- ── TOP BAR ──────────────────────────────────────────────────────── -->
     <header
-      class="flex items-center justify-between px-4 py-2 border-b border-[#1A3A5C] shrink-0"
+      class="flex items-center justify-between px-3 md:px-4 py-2 md:py-2 border-b border-[#1A3A5C] shrink-0"
     >
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 md:gap-3">
         <a
           href="index.html"
-          class="text-[#00ADD8] hover:text-white transition-colors text-xl font-bold"
+          class="text-[#00ADD8] hover:text-white transition-colors text-lg md:text-xl font-bold"
         >
           SpaceQL</a
         >
-        <span class="text-[#1A3A5C]">|</span>
-        <span class="text-[#7EC8E3] text-sm font-mono">Visual SQL Editor</span>
+        <span class="text-[#1A3A5C] hidden sm:inline">|</span>
+        <span class="text-[#7EC8E3] text-xs md:text-sm font-mono hidden sm:inline">Visual SQL Editor</span>
       </div>
-      <div class="flex items-center gap-2 text-xs text-[#4A6A8A] font-mono">
+      <div class="flex items-center gap-2 text-xs md:text-xs text-[#4A6A8A] font-mono">
         <span id="parse-status">Ready</span>
       </div>
     </header>
 
     <!-- ── MAIN LAYOUT: editor | scene ──────────────────────────────────── -->
-    <main class="flex flex-1 overflow-hidden">
+    <main class="flex flex-col md:flex-row flex-1 overflow-hidden">
       <!-- LEFT: Code editor panel -->
       <div
-        class="flex flex-col border-r border-[#1A3A5C]"
-        style="width: 42%; min-width: 320px"
+        class="editor-panel flex flex-col border-b md:border-b-0 md:border-r border-[#1A3A5C]"
+        style="width: 100%; height: 350px"
       >
         <!-- Editor area -->
         <div id="editor" class="flex-1"></div>
 
         <!-- Editor bottom toolbar -->
         <div
-          class="flex items-center gap-2 px-3 py-2 border-t border-[#1A3A5C] bg-[#0F2337] shrink-0"
+          class="flex items-center gap-2 px-3 py-2 border-t border-[#1A3A5C] bg-[#0F2337] shrink-0 flex-wrap"
         >
           <div class="relative">
             <button
               id="examples-btn"
-              class="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors"
+              class="flex items-center gap-1 px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors whitespace-nowrap"
             >
               Examples ▾
             </button>
@@ -147,13 +218,13 @@
           </div>
           <button
             id="btn-run"
-            class="px-4 py-1.5 rounded text-xs font-mono bg-[#00ADD8] text-[#0D1B2A] font-bold hover:bg-[#00D4FF] transition-colors ml-auto"
+            class="px-4 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono bg-[#00ADD8] text-[#0D1B2A] font-bold hover:bg-[#00D4FF] transition-colors ml-auto whitespace-nowrap"
           >
             ▶ Run
           </button>
           <button
             id="btn-clear"
-            class="px-3 py-1.5 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#EF5350] hover:text-[#EF5350] transition-colors"
+            class="px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#EF5350] hover:text-[#EF5350] transition-colors whitespace-nowrap"
           >
             Clear
           </button>
@@ -166,41 +237,42 @@
         <div
           id="canvas-container"
           class="relative overflow-hidden"
-          style="height: 60%"
+          style="height: 300px"
         >
           <!-- Canvas injected here by JS -->
 
           <!-- Camera hint overlay -->
           <div
             id="camera-hint"
-            class="absolute bottom-4 right-4 text-xs text-[#4A6A8A] font-mono pointer-events-none"
+            class="absolute bottom-2 md:bottom-4 right-2 md:right-4 text-xs text-[#4A6A8A] font-mono pointer-events-none"
           >
-            Drag → rotate &nbsp;·&nbsp; Scroll → zoom &nbsp;·&nbsp; Right drag →
-            pan
+            <span class="hidden md:inline">Drag → rotate &nbsp;·&nbsp; Scroll → zoom &nbsp;·&nbsp; Right drag →
+            pan</span>
+            <span class="md:hidden">Drag to rotate</span>
           </div>
         </div>
 
         <!-- Terminal output panel -->
         <div
-          class="flex flex-col border-t border-[#1A3A5C] bg-[#0D1B2A]"
-          style="height: 40%"
+          class="terminal-panel flex flex-col border-t border-[#1A3A5C] bg-[#0D1B2A]"
+          style="height: calc(100% - 300px)"
         >
           <div
-            class="flex items-center justify-between px-3 py-1.5 border-b border-[#1A3A5C] bg-[#0F2337]"
+            class="flex items-center justify-between px-2 md:px-3 py-1.5 border-b border-[#1A3A5C] bg-[#0F2337]"
           >
-            <span class="text-[#7EC8E3] text-xs font-mono font-bold"
+            <span class="text-[#7EC8E3] text-xs md:text-xs font-mono font-bold"
               >Terminal Output</span
             >
             <button
               id="btn-clear-terminal"
-              class="px-2 py-0.5 rounded text-xs font-mono text-[#4A6A8A] hover:text-[#EF5350] transition-colors"
+              class="px-2 py-1 md:py-0.5 rounded text-xs font-mono text-[#4A6A8A] hover:text-[#EF5350] transition-colors"
             >
               Clear
             </button>
           </div>
           <div
             id="terminal-output"
-            class="flex-1 overflow-y-auto px-3 py-2 font-mono text-sm text-[#E8F4FD]"
+            class="flex-1 overflow-y-auto px-2 md:px-3 py-2 font-mono text-xs md:text-sm text-[#E8F4FD]"
           >
             <div class="text-[#4A6A8A] text-xs">
               Ready. Run your code to see output...
@@ -210,46 +282,46 @@
 
         <!-- Scene bottom toolbar -->
         <div
-          class="flex items-center gap-2 px-3 py-2 border-t border-[#1A3A5C] bg-[#0F2337] shrink-0"
+          class="flex items-center gap-2 px-2 md:px-3 py-2 border-t border-[#1A3A5C] bg-[#0F2337] shrink-0 flex-wrap"
         >
           <button
             id="btn-pause"
-            class="px-3 py-1.5 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors"
+            class="px-2 md:px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors whitespace-nowrap"
           >
             ⏸ Pause
           </button>
           <button
             id="btn-reset"
-            class="px-3 py-1.5 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors"
+            class="px-2 md:px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors whitespace-nowrap"
           >
             ↩ Reset
           </button>
           
           <button
             id="btn-view-mode"
-            class="px-3 py-1.5 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors"
+            class="px-2 md:px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors whitespace-nowrap"
             title="Toggle 2D/3D view for JOIN visualization"
           >
-            3D View
+            2D View
           </button>
 
-          <span class="text-[#1A3A5C] mx-1">|</span>
-          <span class="text-xs text-[#4A6A8A] font-mono">Speed:</span>
+          <span class="text-[#1A3A5C] mx-1 hidden sm:inline">|</span>
+          <span class="text-xs text-[#4A6A8A] font-mono hidden sm:inline">Speed:</span>
           <button
             data-speed="0.5"
-            class="speed-btn px-2 py-1 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] transition-colors"
+            class="speed-btn px-2 py-1.5 md:py-1 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] transition-colors whitespace-nowrap"
           >
             0.5×
           </button>
           <button
             data-speed="1"
-            class="speed-btn active px-2 py-1 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] transition-colors"
+            class="speed-btn active px-2 py-1.5 md:py-1 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] transition-colors whitespace-nowrap"
           >
             1×
           </button>
           <button
             data-speed="2"
-            class="speed-btn px-2 py-1 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] transition-colors"
+            class="speed-btn px-2 py-1.5 md:py-1 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] transition-colors whitespace-nowrap"
           >
             2×
           </button>
@@ -269,6 +341,7 @@
         controls,
         getCanvas,
         getLabelRenderer,
+        setCameraMode,
       } from "./js/core/scene.js";
       import { parseSQL } from "./js/engine/parser.js";
       import OpenWorldEngine from "./js/engine/engine.js";
@@ -316,7 +389,8 @@
         const delta = clock.getDelta();
         controls.update();
         engine.tick(delta);
-        renderer.render(scene, camera);
+        composer.render();  // Use composer for bloom effect
+        labelRenderer.render(scene, camera);  // Render CSS2D labels
       }
       animate();
 
@@ -368,7 +442,10 @@
       const btnViewMode = document.getElementById("btn-view-mode");
       btnViewMode.addEventListener("click", () => {
         currentViewMode = currentViewMode === '3d' ? '2d' : '3d';
-        btnViewMode.textContent = currentViewMode === '3d' ? 'Switch to 2D' : 'Switch to 3D';
+        btnViewMode.textContent = currentViewMode === '3d' ? '2D View' : '3D View';
+        
+        // Update camera mode
+        setCameraMode(currentViewMode);
         
         // Update visualizer view mode
         if (engine.visualizers && engine.visualizers.select) {
