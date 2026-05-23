@@ -1,12 +1,12 @@
 <!-- Interactive SQL Visualizer -->
 
-# SQLSpace
+# SpaceQL
 
-SQLSpace is an open-source project that visualizes SQL queries in real-time using Three.js. It features an "Interactive SQL Editor" mode where users can type SQL queries and see them come to life as 3D animations. The platform is built with a strict stack of Vanilla ES6, Three.js, Tailwind CSS, GSAP, SQL.js, and Monaco Editor, all loaded via CDN.
+SpaceQL is an open-source project that visualizes SQL queries in real-time using Three.js. It features an "Interactive SQL Editor" mode where users can type SQL queries and see them come to life as 3D animations. The platform is built with a strict stack of Vanilla ES6, Three.js, Tailwind CSS, GSAP, SQL.js, and Monaco Editor, all loaded via CDN.
 
 ## Table of Contents
 
-- [SQLSpace](#sqlspace)
+- [SpaceQL](#spaceql)
   - [Table of Contents](#table-of-contents)
   - [Built With](#built-with)
   - [Key Features](#key-features)
@@ -14,7 +14,6 @@ SQLSpace is an open-source project that visualizes SQL queries in real-time usin
     - [1. Prerequisites](#1-prerequisites)
     - [2. Installation](#2-installation)
   - [Architecture](#architecture)
-  - [License](#license)
   - [Contributing](#contributing)
   - [Contact](#contact)
 
@@ -48,7 +47,7 @@ SQLSpace is an open-source project that visualizes SQL queries in real-time usin
 
 ### 2. Installation
 
-To get started with SQLSpace, simply clone the repository and open the `index.html` file in your web browser. You can start typing SQL queries in the editor and see the visualizations in real-time.
+To get started with SpaceQL, simply clone the repository and open the `index.html` file in your web browser. You can start typing SQL queries in the editor and see the visualizations in real-time.
 
 ```bash
 # Move to your workspace
@@ -58,7 +57,7 @@ cd <your-workspace>
 git clone <repository-url>
 
 # Move to the project root directory
-cd sqlspace
+cd SpaceQL
 
 # Open the project in your favorite IDE
 code . # For Visual Studio Code
@@ -67,7 +66,7 @@ code . # For Visual Studio Code
 python3 -m http.server 8080
 ```
 
-Then, open your browser and go to `http://localhost:8080` to see SQLSpace in action.
+Then, open your browser and go to `http://localhost:8080` to see SpaceQL in action.
 
 > No Environment Variables, no API keys, no build steps. Just open the HTML file and start learning SQL visually!
 
@@ -100,13 +99,9 @@ The project is structured in a layered architecture with the following layers:
     └── spec.md            # Full specification
 ```
 
-## License
-
-This project is open source and available under the MIT License.
-
 ## Contributing
 
-Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c63ec426) for details on our code of conduct, and the process for submitting pull requests to us.
+In the **SpaceQL** project, we follow a structured development workflow to ensure efficient collaboration and code management. This workflow includes the following key components: branching strategy, versioning, and commit message conventions. By following these guidelines, we aim to maintain a clean and organized codebase that is easy to manage and contribute to. For more information, please refer to the [Contributing Guide](CONTRIBUTING.md) document.
 
 ## Contact
 
