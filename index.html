@@ -176,9 +176,19 @@
         box-shadow: 0 0 30px rgba(0, 173, 216, 0.3);
       }
       
+      .helper-body {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+        min-height: 0;
+      }
+      
       .helper-sidebar {
         border-right: 1px solid #1A3A5C;
         background: #0D1B2A;
+        width: 220px;
+        overflow-y: auto;
+        flex-shrink: 0;
       }
       
       .helper-category-btn {
@@ -192,6 +202,7 @@
         transition: all 0.2s;
         border-left: 3px solid transparent;
         font-size: 0.875rem;
+        display: block;
       }
       
       .helper-category-btn:hover {
@@ -203,10 +214,13 @@
         background: #1A3A5C;
         color: #00ADD8;
         border-left-color: #00ADD8;
+        font-weight: 600;
       }
       
       .helper-detail {
+        flex: 1;
         overflow-y: auto;
+        padding: 20px;
       }
       
       .helper-code {
@@ -219,6 +233,7 @@
         color: #7EC8E3;
         white-space: pre-wrap;
         overflow-x: auto;
+        line-height: 1.5;
       }
       
       .helper-example {
@@ -236,30 +251,104 @@
         box-shadow: 0 0 10px rgba(0, 173, 216, 0.2);
       }
       
+      .helper-example:active {
+        transform: scale(0.98);
+      }
+      
       @media (max-width: 767px) {
+        #sql-helper-modal {
+          padding: 0;
+          align-items: stretch;
+        }
+        
         .helper-content {
+          max-height: 100vh;
+          height: 100vh;
+          max-width: 100%;
+          border-radius: 0;
+          border: none;
+        }
+        
+        .helper-body {
           flex-direction: column;
-          max-height: 85vh;
         }
         
         .helper-sidebar {
           border-right: none;
           border-bottom: 1px solid #1A3A5C;
           overflow-x: auto;
+          overflow-y: hidden;
           white-space: nowrap;
+          width: 100%;
+          flex-shrink: 0;
+          display: flex;
+          -webkit-overflow-scrolling: touch;
+          scroll-snap-type: x mandatory;
+        }
+        
+        .helper-sidebar::-webkit-scrollbar {
+          height: 4px;
         }
         
         .helper-category-btn {
-          display: inline-block;
+          display: inline-flex;
+          align-items: center;
           width: auto;
-          padding: 10px 14px;
+          min-width: fit-content;
+          padding: 12px 16px;
           border-left: none;
           border-bottom: 3px solid transparent;
+          white-space: nowrap;
+          font-size: 0.8rem;
+          scroll-snap-align: start;
+          touch-action: manipulation;
         }
         
         .helper-category-btn.active {
           border-left: none;
           border-bottom-color: #00ADD8;
+        }
+        
+        .helper-detail {
+          padding: 12px;
+          -webkit-overflow-scrolling: touch;
+        }
+        
+        .helper-code {
+          font-size: 0.75rem;
+          padding: 8px;
+        }
+        
+        .helper-example {
+          padding: 10px;
+          margin-bottom: 10px;
+        }
+        
+        /* Make examples more touch-friendly */
+        .helper-example {
+          min-height: 60px;
+          touch-action: manipulation;
+        }
+      }
+      
+      /* Very small screens */
+      @media (max-width: 400px) {
+        .helper-category-btn {
+          padding: 10px 12px;
+          font-size: 0.75rem;
+        }
+        
+        .helper-detail {
+          padding: 10px;
+        }
+        
+        .helper-code {
+          font-size: 0.7rem;
+          padding: 6px;
+        }
+        
+        .helper-example {
+          padding: 8px;
         }
       }
     </style>
@@ -305,9 +394,10 @@
       <div class="flex items-center gap-2 md:gap-3 text-xs md:text-xs font-mono">
         <button
           id="btn-sql-helper"
-          class="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors"
+          class="flex items-center gap-1 px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-mono border border-[#1A3A5C] hover:border-[#00ADD8] hover:text-[#00ADD8] transition-colors"
           title="SQL Syntax Helper"
         >
+          <span>?</span>
           <span class="hidden md:inline">Help</span>
         </button>
         <span class="text-[#4A6A8A]" id="parse-status">Ready</span>
@@ -459,25 +549,26 @@
     <div id="sql-helper-modal">
       <div class="helper-content">
         <!-- Header -->
-        <div class="flex items-center justify-between px-4 py-3 border-b border-[#1A3A5C]">
-          <h2 class="text-lg font-bold text-[#00ADD8]">SQL Syntax Helper</h2>
+        <div class="flex items-center justify-between px-3 md:px-4 py-2 md:py-3 border-b border-[#1A3A5C] shrink-0">
+          <h2 class="text-base md:text-lg font-bold text-[#00ADD8]">SQL Syntax Helper</h2>
           <button
             id="close-helper"
-            class="px-3 py-1 rounded text-[#7EC8E3] hover:text-[#EF5350] transition-colors text-xl"
+            class="px-2 md:px-3 py-1 rounded text-[#7EC8E3] hover:text-[#EF5350] transition-colors text-xl leading-none"
+            title="Close (ESC)"
           >
             ✕
           </button>
         </div>
         
         <!-- Body -->
-        <div class="flex flex-1 overflow-hidden" style="min-height: 0;">
+        <div class="helper-body">
           <!-- Sidebar Categories -->
-          <div class="helper-sidebar overflow-y-auto" style="width: 200px;">
+          <div class="helper-sidebar">
             <div id="helper-categories"></div>
           </div>
           
           <!-- Detail Panel -->
-          <div class="helper-detail flex-1 overflow-y-auto p-4">
+          <div class="helper-detail">
             <div id="helper-detail-content">
               <p class="text-[#7EC8E3] text-center py-8">Select a command to view details</p>
             </div>
@@ -583,7 +674,10 @@
       HELP_CATEGORIES.forEach((category, index) => {
         const btn = document.createElement("button");
         btn.className = `helper-category-btn ${index === 0 ? 'active' : ''}`;
-        btn.innerHTML = `${category.icon} ${category.label}`;
+        // Use short label on mobile, full label on desktop
+        const isMobile = window.innerWidth < 768;
+        const labelText = category.label;
+        btn.innerHTML = `<span class="mr-1">${category.icon}</span><span>${labelText}</span>`;
         btn.dataset.category = category.id;
         btn.addEventListener("click", () => {
           // Update active state
@@ -591,6 +685,13 @@
           btn.classList.add("active");
           // Show category details
           showHelpCategory(category.id);
+          // Reset detail scroll position
+          const detailPanel = document.querySelector('.helper-detail');
+          if (detailPanel) detailPanel.scrollTop = 0;
+          // Scroll active button into view on mobile
+          if (window.innerWidth < 768) {
+            btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
         });
         helperCategories.appendChild(btn);
       });
@@ -601,31 +702,31 @@
         if (!helpData) return;
         
         let html = `
-          <div class="mb-4">
-            <h3 class="text-xl font-bold text-[#00ADD8] mb-2">${helpData.title}</h3>
+          <div class="mb-3 md:mb-4">
+            <h3 class="text-lg md:text-xl font-bold text-[#00ADD8] mb-2">${helpData.title}</h3>
           </div>
           
-          <div class="mb-6">
-            <h4 class="text-sm font-bold text-[#7EC8E3] mb-2">SYNTAX:</h4>
+          <div class="mb-4 md:mb-6">
+            <h4 class="text-xs md:text-sm font-bold text-[#7EC8E3] mb-2 uppercase">Syntax:</h4>
             <div class="helper-code">${helpData.syntax}</div>
           </div>
         `;
         
         if (helpData.examples && helpData.examples.length > 0) {
           html += `
-            <div class="mb-6">
-              <h4 class="text-sm font-bold text-[#7EC8E3] mb-3">EXAMPLES:</h4>
+            <div class="mb-4 md:mb-6">
+              <h4 class="text-xs md:text-sm font-bold text-[#7EC8E3] mb-2 md:mb-3 uppercase">Examples:</h4>
           `;
           
           helpData.examples.forEach(example => {
             html += `
               <div class="helper-example" onclick="applyHelperExample(\`${example.code.replace(/`/g, '\\`')}\`)">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-[#00ADD8] font-bold text-sm">${example.label}</span>
-                  <span class="text-[#4A6A8A] text-xs">Click to apply →</span>
+                <div class="flex items-start justify-between mb-2 gap-2">
+                  <span class="text-[#00ADD8] font-bold text-xs md:text-sm">${example.label}</span>
+                  <span class="text-[#4A6A8A] text-xs whitespace-nowrap flex-shrink-0">Tap to use →</span>
                 </div>
                 <div class="helper-code mb-2">${example.code}</div>
-                <p class="text-[#7EC8E3] text-xs">${example.description}</p>
+                <p class="text-[#7EC8E3] text-xs leading-relaxed">${example.description}</p>
               </div>
             `;
           });
@@ -636,12 +737,12 @@
         if (helpData.tips && helpData.tips.length > 0) {
           html += `
             <div class="mb-4">
-              <h4 class="text-sm font-bold text-[#7EC8E3] mb-2">TIPS:</h4>
+              <h4 class="text-xs md:text-sm font-bold text-[#7EC8E3] mb-2 uppercase">Tips:</h4>
               <ul class="space-y-2">
           `;
           
           helpData.tips.forEach(tip => {
-            html += `<li class="text-[#7EC8E3] text-sm pl-4 border-l-2 border-[#1A3A5C]"> ${tip}</li>`;
+            html += `<li class="text-[#7EC8E3] text-xs md:text-sm pl-3 md:pl-4 border-l-2 border-[#1A3A5C] leading-relaxed"> ${tip}</li>`;
           });
           
           html += `
@@ -668,16 +769,28 @@
         if (HELP_CATEGORIES.length > 0) {
           showHelpCategory(HELP_CATEGORIES[0].id);
         }
+        // Reset scroll positions
+        const detailPanel = document.querySelector('.helper-detail');
+        if (detailPanel) detailPanel.scrollTop = 0;
+        
+        const sidebar = document.querySelector('.helper-sidebar');
+        if (sidebar) sidebar.scrollLeft = 0;
+        
+        // Prevent body scroll on mobile
+        document.body.style.overflow = 'hidden';
       });
       
       document.getElementById("close-helper").addEventListener("click", () => {
         helperModal.classList.remove("open");
+        // Restore body scroll
+        document.body.style.overflow = '';
       });
       
       // Close on backdrop click
       helperModal.addEventListener("click", (e) => {
         if (e.target === helperModal) {
           helperModal.classList.remove("open");
+          document.body.style.overflow = '';
         }
       });
       
@@ -685,6 +798,7 @@
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape" && helperModal.classList.contains("open")) {
           helperModal.classList.remove("open");
+          document.body.style.overflow = '';
         }
       });
 
