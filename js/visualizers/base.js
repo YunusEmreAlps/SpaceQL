@@ -76,6 +76,10 @@ export default class BaseVisualizer {
    */
   addAnimation(animation) {
     this.animations.push(animation);
+    // Apply current speed to new animation
+    if (animation && animation.timeScale) {
+      animation.timeScale(this.speed);
+    }
     return animation;
   }
 

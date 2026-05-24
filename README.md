@@ -2,14 +2,17 @@
 
 # SpaceQL
 
-SpaceQL is an open-source project that visualizes SQL queries in real-time using Three.js. It features an "Interactive SQL Editor" mode where users can type SQL queries and see them come to life as 3D animations. The platform is built with a strict stack of Vanilla ES6, Three.js, Tailwind CSS, GSAP, SQL.js, and Monaco Editor, all loaded via CDN.
+Learn SQL by seeing it in action! [SpaceQL](https://spaceql.netlify.app/) is an interactive SQL visualizer that transforms your SQL queries into dynamic 3D animations. Whether you're a beginner trying to grasp the basics of SQL or an experienced developer looking for a new way to visualize your queries, SpaceQL provides an engaging and intuitive learning experience.
+
+![Screenshot](./docs/assets/ss-1.png)
+
+> In this versions animations are not look descriptive, but in the next versions we will add more descriptive animations to make it more intuitive and engaging. Stay tuned for updates! [Live Demo](https://spaceql.netlify.app/)
 
 ## Table of Contents
 
 - [SpaceQL](#spaceql)
   - [Table of Contents](#table-of-contents)
   - [Built With](#built-with)
-  - [Key Features](#key-features)
   - [Development Guide](#development-guide)
     - [1. Prerequisites](#1-prerequisites)
     - [2. Installation](#2-installation)
@@ -20,30 +23,19 @@ SpaceQL is an open-source project that visualizes SQL queries in real-time using
 ## Built With
 
 - [Three.js](https://threejs.org/) - 3D visualization engine
-- [Monaco Editor](https://microsoft.github.io/monaco-editor/) - Code editor with SQL syntax highlighting
 - [GSAP 3](https://greensock.com/gsap/) - Animation library
 - [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
-- [Vanilla ES6](https://developer.mozilla.org/en-US/docs/Web/JavaScript) - Pure JavaScript modules
 - [SQL.js](https://sql.js.org/) - SQLite engine for real SQL execution in browser
-
-## Key Features
-
-- **Real-Time Visualization**: See your SQL queries come to life as 3D animations in real-time.
-- **Interactive SQL Editor**: Type SQL queries and watch them transform into interactive 3D scenes.
-- **Strict Stack**: Built with Vanilla ES6, Three.js, Tailwind CSS, GSAP, SQL.js, and Monaco Editor, all loaded via CDN for optimal performance and ease of use.
+- [Vanilla ES6](https://developer.mozilla.org/en-US/docs/Web/JavaScript) - Pure JavaScript modules
+- [Monaco Editor](https://microsoft.github.io/monaco-editor/) - Code editor with SQL syntax highlighting
 
 ## Development Guide
 
 ### 1. Prerequisites
 
-- A modern web browser (Chrome, Firefox, Edge)
-- Python 3 for running a local server (or any static file server of your choice)
-- Basic knowledge of SQL and JavaScript
-- Familiarity with Three.js and GSAP is a plus but not required
-- Understanding of ES6 modules and browser-based development
-- No backend or build tools are required; everything runs in the browser with CDN dependencies
-- A text editor for editing code (VSCode, Sublime Text, etc.)
-- Git for version control and collaboration
+To contribute to SpaceQL, you will need the following tools installed on your development machine:
+
+- Python 3 or Node.js (for running a local development server)
 
 ### 2. Installation
 
@@ -64,6 +56,9 @@ code . # For Visual Studio Code
 
 # Run a local server (Python 3)
 python3 -m http.server 8080
+
+# Run a local server (Node.js)
+npx http-server -p 8080
 ```
 
 Then, open your browser and go to `http://localhost:8080` to see SpaceQL in action.
@@ -83,6 +78,7 @@ The project is structured in a layered architecture with the following layers:
 │   │   └── utils.js       # Utility functions
 │   ├── data/
 │   │   ├── examples.js    # SQL example queries
+│   │   ├── sqlhelp.js     # SQL syntax definitions and autocomplete data
 │   │   ├── suggestions.js # Monaco autocomplete definitions
 │   │   └── tables.js      # Database schema definitions
 │   ├── engine/
@@ -95,8 +91,7 @@ The project is structured in a layered architecture with the following layers:
 │       ├── update.js      # UPDATE query visualizer
 │       ├── delete.js      # DELETE query visualizer
 │       └── create.js      # CREATE TABLE visualizer
-└── docs/
-    └── spec.md            # Full specification
+└── docs/                  # Documentation and design assets
 ```
 
 ## Contributing
