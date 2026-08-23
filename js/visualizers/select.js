@@ -15,6 +15,8 @@ export default class SelectVisualizer extends BaseVisualizer {
     this.joinConnections = [];
     this.viewMode = '3d'; // '2d' or '3d'
     this.lastQuery = null;
+    this.stages = []; // Ordered SQL logical-execution stages for the current query
+    this.activeStageIndex = -1; // Read by index.html to drive the execution-order panel
   }
 
   setViewMode(mode) {
@@ -26,12 +28,14 @@ export default class SelectVisualizer extends BaseVisualizer {
 
   update(selectQuery) {
     this.clear();
-    
+
     if (!selectQuery) return;
-    
+
     this.lastQuery = selectQuery;
-    const { from, columns, where, joins, limit, groupBy, orderBy, resultRows } = selectQuery;
-    
+    this.stages = this.computeStages(selectQuery);
+    this.activeStageIndex = -1;
+    const { from, columns, joins, groupBy, orderBy } = selectQuery;
+
     // GROUP BY pipeline visualization
     if (groupBy && groupBy.length > 0) {
       this.visualizeGroupByPipeline(from, groupBy, columns, orderBy);
@@ -39,38 +43,192 @@ export default class SelectVisualizer extends BaseVisualizer {
     // Enhanced JOIN visualization
     else if (joins && joins.length > 0) {
       this.visualizeJoin(from, joins[0], columns);
-    } 
-    // Simple SELECT without JOIN or GROUP BY
+    }
+    // Simple SELECT without JOIN or GROUP BY - full execution-order pipeline
     else {
-      this.createSimpleTable(from, columns, resultRows);
+      this.visualizePipeline(from, selectQuery);
     }
   }
 
   /**
-   * Simple table visualization (no JOINs)
+   * Ordered list of SQL clauses actually present on this query, in real SQL
+   * *logical* execution order (not the order they're typed in):
+   * FROM/JOIN -> WHERE -> GROUP BY -> HAVING -> SELECT -> DISTINCT -> ORDER BY -> LIMIT.
+   * Read by index.html to drive the on-screen execution-order panel.
    */
-  createSimpleTable(tableName, columns, resultRows) {
-    // Apply viewMode: in 2D, flatten the table
+  computeStages(q) {
+    const stages = [];
+    const hasJoin = q.joins && q.joins.length > 0;
+    stages.push({
+      key: 'FROM',
+      label: hasJoin ? `FROM ${q.from} + JOIN ${q.joins[0].table}` : `FROM ${q.from}`,
+    });
+    if (q.where && q.where.length > 0) stages.push({ key: 'WHERE', label: 'WHERE filter' });
+    if (q.groupBy && q.groupBy.length > 0) {
+      stages.push({ key: 'GROUP_BY', label: `GROUP BY ${q.groupBy.join(', ')}` });
+    }
+    if (q.having && q.having.length > 0) stages.push({ key: 'HAVING', label: 'HAVING filter' });
+    stages.push({ key: 'SELECT', label: 'SELECT columns' });
+    if (q.distinct) stages.push({ key: 'DISTINCT', label: 'DISTINCT dedupe' });
+    if (q.orderBy && q.orderBy.length > 0) {
+      const dir = q.orderBy[0].direction || 'ASC';
+      stages.push({ key: 'ORDER_BY', label: `ORDER BY ${dir}` });
+    }
+    if (q.limit) stages.push({ key: 'LIMIT', label: `LIMIT ${q.limit.count}` });
+    return stages;
+  }
+
+  /**
+   * Full SQL execution-order pipeline for a plain SELECT (no JOIN, no GROUP
+   * BY): FROM -> [WHERE] -> SELECT -> [DISTINCT] -> [ORDER BY] -> [LIMIT],
+   * each a real animated transformation of the row set, staged in sync with
+   * `this.stages`/`this.activeStageIndex` (read by index.html's execution
+   * order panel).
+   */
+  visualizePipeline(tableName, q) {
     const tableZ = this.viewMode === '2d' ? 0 : -1;
     const tableX = 0;
-    
+
     this.createTableHeader(tableName, tableX, tableZ);
-    
-    const data = resultRows || [];
-    const maxRows = Math.min(data.length, 5);
-    
-    if (maxRows === 0) {
-      this.createLabel('No data - Run query to see results', tableX, -1, tableZ, 0.2);
+
+    const sourceRows = q.sourceRows;
+    if (!sourceRows) {
+      this.createLabel('Run query to see data flow', tableX, -1, tableZ, 0.2);
       return;
     }
-    
-    for (let i = 0; i < maxRows; i++) {
-      const row = data[i];
-      const y = 0.8 - i * 0.4;
-      this.createDataRow(row, tableX, y, tableZ, 0x00ADD8, i, true);
+    if (sourceRows.length === 0) {
+      this.createLabel('Table is empty', tableX, -1, tableZ, 0.2);
+      return;
     }
-    
-    this.createLabel(`${maxRows} rows shown`, tableX, -2, tableZ, 0.15);
+
+    const filteredRows = q.filteredRows || sourceRows;
+    const resultRows = q.resultRows || [];
+    const resultColumns = q.resultColumns || [];
+    const hasWhere = q.where && q.where.length > 0;
+    const hasDistinct = !!q.distinct;
+    const hasOrderBy = q.orderBy && q.orderBy.length > 0;
+    const hasLimit = !!q.limit;
+
+    const maxRows = Math.min(sourceRows.length, 8);
+    const displayRows = sourceRows.slice(0, maxRows);
+    const filteredKeys = new Set(filteredRows.map(r => this.rowKey(r)));
+    const SEP = '␟';
+    const rowId = (row) => resultColumns.map(c => String(row[c])).join(SEP);
+
+    const timeline = gsap.timeline();
+    this.addAnimation(timeline);
+
+    // NOTE: each stage callback below closes over a `const stage = stageIdx++`
+    // snapshot, not the mutable `stageIdx` itself - gsap callbacks fire on a
+    // later tick, by which point stageIdx would already hold its final value.
+    let stageIdx = 0;
+    const fromStage = stageIdx++;
+    timeline.call(() => { this.activeStageIndex = fromStage; }, null, 0);
+
+    // A row's floating value label is a separate CSS2DObject (not a mesh
+    // child - see createDataRow), so every fade/move below must carry it
+    // along explicitly or it'll be left behind hovering over nothing.
+    const fadeOutRow = (r, t) => {
+      timeline.to(r.mesh.scale, { x: 0, y: 0, z: 0, duration: 0.4, ease: "back.in(2)" }, t);
+      timeline.to(r.mesh.material, { opacity: 0 }, t);
+      if (r.mesh.userData.label) {
+        timeline.to(r.mesh.userData.label.element, { opacity: 0, duration: 0.3 }, t);
+      }
+      r.active = false;
+    };
+
+    // ---- Stage: FROM ----
+    const rows = displayRows.map((row, i) => {
+      const y = 0.8 - i * 0.4;
+      const mesh = this.createDataRow(row, tableX, y, tableZ, 0x00ADD8, i, true);
+      return { key: this.rowKey(row), row, mesh, y, active: true };
+    });
+
+    let cursor = 0.3 + maxRows * 0.1 + 0.5;
+
+    // ---- Stage: WHERE ----
+    if (hasWhere) {
+      const stage = stageIdx++;
+      timeline.call(() => { this.activeStageIndex = stage; }, null, cursor);
+      rows.forEach((r, i) => {
+        const t = cursor + i * 0.06;
+        if (filteredKeys.has(r.key)) {
+          timeline.to(r.mesh.material.color, { r: 0, g: 1, b: 0.53 }, t);
+          timeline.to(r.mesh.material, { emissiveIntensity: 0.7 }, t);
+          timeline.to(r.mesh.material, { emissiveIntensity: 0.3 }, t + 0.3);
+        } else {
+          fadeOutRow(r, t);
+        }
+      });
+      cursor += maxRows * 0.06 + 0.5;
+    }
+
+    // ---- Stage: SELECT ----
+    {
+      const stage = stageIdx++;
+      timeline.call(() => { this.activeStageIndex = stage; }, null, cursor);
+      rows.filter(r => r.active).forEach((r, i) => {
+        timeline.to(r.mesh.scale, { y: 1.3, duration: 0.15, yoyo: true, repeat: 1 }, cursor + i * 0.04);
+      });
+      cursor += 0.45;
+    }
+
+    // ---- Stage: DISTINCT ----
+    if (hasDistinct) {
+      const stage = stageIdx++;
+      timeline.call(() => { this.activeStageIndex = stage; }, null, cursor);
+      const seen = new Set();
+      const activeBefore = rows.filter(r => r.active);
+      activeBefore.forEach((r, i) => {
+        const id = rowId(r.row);
+        if (seen.has(id)) {
+          fadeOutRow(r, cursor + i * 0.05);
+        } else {
+          seen.add(id);
+        }
+      });
+      timeline.call(() => {
+        this.createLabel(`${activeBefore.length} → ${resultRows.length} distinct`, tableX, -2.6, tableZ, 0.15);
+      }, null, cursor);
+      cursor += 0.5 + activeBefore.length * 0.05;
+    }
+
+    // ---- Stage: ORDER BY ----
+    if (hasOrderBy && resultRows.length > 0) {
+      const stage = stageIdx++;
+      timeline.call(() => { this.activeStageIndex = stage; }, null, cursor);
+      const finalOrder = resultRows.map(r => r.map(String).join(SEP));
+      rows.filter(r => r.active).forEach(r => {
+        const newIdx = finalOrder.indexOf(rowId(r.row));
+        if (newIdx !== -1) {
+          const newY = 0.8 - newIdx * 0.4;
+          timeline.to(r.mesh.position, { y: newY, duration: 0.8, ease: "power2.inOut" }, cursor);
+          if (r.mesh.userData.label) {
+            timeline.to(r.mesh.userData.label.position, { y: newY, duration: 0.8, ease: "power2.inOut" }, cursor);
+          }
+          r.y = newY;
+        }
+      });
+      cursor += 0.9;
+    }
+
+    // ---- Stage: LIMIT ----
+    if (hasLimit) {
+      const stage = stageIdx++;
+      timeline.call(() => { this.activeStageIndex = stage; }, null, cursor);
+      const keepCount = q.limit.count;
+      const activeSorted = rows.filter(r => r.active).sort((a, b) => b.y - a.y);
+      activeSorted.forEach((r, i) => {
+        if (i >= keepCount) {
+          fadeOutRow(r, cursor + i * 0.05);
+        }
+      });
+      cursor += 0.5;
+    }
+
+    timeline.call(() => {
+      this.createLabel(`${resultRows.length} row(s) returned`, tableX, -2.2, tableZ, 0.15);
+    }, null, cursor);
   }
 
   /**
@@ -79,32 +237,90 @@ export default class SelectVisualizer extends BaseVisualizer {
   visualizeJoin(leftTable, join, columns) {
     const rightTable = join.table;
     const joinType = (join.type || 'INNER').toUpperCase();
-    
+    const joinColor = joinType.includes('INNER') ? '#00FF88' :
+      joinType.includes('LEFT') ? '#FFAA44' :
+      joinType.includes('RIGHT') ? '#4ECDC4' : '#FFFFFF';
+
     // Table positions
     const leftX = this.viewMode === '2d' ? -4 : -5;
     const rightX = this.viewMode === '2d' ? 4 : 5;
     const tableZ = this.viewMode === '2d' ? 0 : -2;
-    
+
+    // Stage 0 (FROM+JOIN) starts immediately; none of this app's JOIN
+    // examples combine WHERE/ORDER BY/LIMIT with a JOIN (that needs
+    // row-level filtering across two tables, out of scope here), so once
+    // matches are revealed we jump straight to the final stage (SELECT).
+    this.activeStageIndex = 0;
+
     // Create headers
     this.createTableHeader(leftTable, leftX, tableZ);
     this.createTableHeader(rightTable, rightX, tableZ);
-    
-    // Show placeholder - user needs to run real SQL query
-    this.createLabel('Run JOIN query to see results', 0, 0, 0, 0.25);
-    this.createColoredLabel(`${joinType} JOIN`, 0, 3, 0, 0.4, 
-      joinType.includes('INNER') ? '#00FF88' :
-      joinType.includes('LEFT') ? '#FFAA44' :
-      joinType.includes('RIGHT') ? '#4ECDC4' : '#FFFFFF');
+    // join.type already includes the JOIN keyword (e.g. "LEFT_JOIN") - just
+    // make it readable, don't append JOIN again
+    this.createColoredLabel(joinType.replace(/_/g, ' '), 0, 3, 0, 0.4, joinColor);
+
+    const leftData = this.lastQuery && this.lastQuery.leftRows;
+    const rightData = this.lastQuery && this.lastQuery.rightRows;
+
+    // No real data yet (query hasn't been run) - show a lightweight preview
+    if (!leftData || !rightData) {
+      this.createLabel('Run query to see matched rows', 0, 0, 0, 0.22);
+      return;
+    }
+
+    this.addAnimation(gsap.delayedCall(1.2, () => {
+      this.activeStageIndex = this.stages.length - 1;
+    }));
+
+    const cond = this.parseJoinCondition(join.on, leftTable, rightTable);
+    const matches = cond
+      ? this.findMatches(leftData, rightData, cond.leftCol, cond.rightCol)
+      : [];
+
+    if (joinType.includes('LEFT')) {
+      this.visualizeLeftJoin(leftData, rightData, matches, leftX, rightX, tableZ);
+    } else if (joinType.includes('RIGHT')) {
+      this.visualizeRightJoin(leftData, rightData, matches, leftX, rightX, tableZ);
+    } else {
+      this.visualizeInnerJoin(leftData, rightData, matches, leftX, rightX, tableZ);
+    }
   }
 
   /**
-   * Find matching rows (simple ID matching)
+   * Parse an equi-join ON clause (e.g. "users.id = orders.user_id") into
+   * the column name on each side, regardless of which side is written first.
    */
-  findMatches(leftData, rightData) {
+  parseJoinCondition(onStr, leftTable, rightTable) {
+    if (!onStr) return null;
+
+    const qualified = onStr.match(/(\w+)\.(\w+)\s*=\s*(\w+)\.(\w+)/);
+    if (qualified) {
+      const [, t1, c1, t2, c2] = qualified;
+      if (t1.toLowerCase() === leftTable.toLowerCase()) return { leftCol: c1, rightCol: c2 };
+      if (t1.toLowerCase() === rightTable.toLowerCase()) return { leftCol: c2, rightCol: c1 };
+      // Unrecognized prefixes - fall back to positional order
+      return { leftCol: c1, rightCol: c2 };
+    }
+
+    const bare = onStr.match(/(\w+)\s*=\s*(\w+)/);
+    if (bare) return { leftCol: bare[1], rightCol: bare[2] };
+
+    return null;
+  }
+
+  /**
+   * Find matching rows between two real row-object arrays using the
+   * parsed equi-join columns.
+   */
+  findMatches(leftData, rightData, leftCol, rightCol) {
     const matches = [];
     leftData.forEach((leftRow, leftIdx) => {
       rightData.forEach((rightRow, rightIdx) => {
-        if (leftRow.id === rightRow.user_id) {
+        if (
+          leftRow[leftCol] !== undefined &&
+          rightRow[rightCol] !== undefined &&
+          String(leftRow[leftCol]) === String(rightRow[rightCol])
+        ) {
           matches.push({ leftIdx, rightIdx, leftRow, rightRow });
         }
       });
@@ -215,15 +431,35 @@ export default class SelectVisualizer extends BaseVisualizer {
     const headerMat = new THREE.MeshStandardMaterial({
       color: 0x00ADD8,
       metalness: 0.4,
-      roughness: 0.6
+      roughness: 0.6,
+      emissive: 0x00ADD8,
+      emissiveIntensity: 0.35,
+      transparent: true,
+      opacity: 0.82
     });
     const header = new THREE.Mesh(headerGeom, headerMat);
     header.position.y = 1.5;
     group.add(header);
 
+    // Entrance: drop into place and scale up, matching the other visualizers
+    header.scale.y = 0;
+    header.position.y = 3.5;
+    const dropAnim = gsap.to(header.position, {
+      y: 1.5,
+      duration: 0.6,
+      ease: "bounce.out"
+    });
+    const growAnim = gsap.to(header.scale, {
+      y: 1,
+      duration: 0.5,
+      ease: "back.out(2)"
+    });
+    this.addAnimation(dropAnim);
+    this.addAnimation(growAnim);
+
     this.tables.set(tableName, group);
     this.addObject(group);
-    
+
     this.createLabel(tableName, x, 2.2, z, 0.35);
   }
 
@@ -255,11 +491,13 @@ export default class SelectVisualizer extends BaseVisualizer {
     this.addAnimation(anim);
 
     this.addObject(row);
-    
-    // Show data value
+
+    // Show data value - stashed on userData so callers that move/fade this
+    // row (e.g. the execution-order pipeline) can keep the label in sync,
+    // since a CSS2DObject label doesn't inherit the mesh's transform/opacity.
     const firstValue = Object.values(data)[1] || Object.values(data)[0];
-    this.createSmallLabel(String(firstValue), x, y, z + 0.3, 0.12);
-    
+    row.userData.label = this.createSmallLabel(String(firstValue), x, y, z + 0.3, 0.12);
+
     return row;
   }
 
@@ -322,79 +560,18 @@ export default class SelectVisualizer extends BaseVisualizer {
     this.addObject(arrow);
   }
 
-  /**
-   * Create JOIN type label
-   */
-  createJoinLabel(joinType, x, y, z) {
-    const labelText = `${joinType} JOIN`;
-    const color = joinType.includes('INNER') ? '#00FF88' :
-                  joinType.includes('LEFT') ? '#FFAA44' :
-                  joinType.includes('RIGHT') ? '#4ECDC4' : '#FFFFFF';
-    
-    this.createColoredLabel(labelText, x, y, z, 0.4, color);
-  }
-
   createLabel(text, x, y, z, scale = 0.2) {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = 256;
-    canvas.height = 64;
-    
-    context.fillStyle = '#00ADD8';
-    context.font = 'bold 32px monospace';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(text, 128, 32);
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(material);
-    sprite.position.set(x, y, z);
-    sprite.scale.set(scale * 4, scale, 1);
-    
-    this.addObject(sprite);
+    return this.makeTag(text, x, y, z, {
+      color: '#00ADD8', size: scale >= 0.3 ? 'lg' : scale <= 0.15 ? 'sm' : 'md',
+    });
   }
 
   createSmallLabel(text, x, y, z, scale) {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = 256;
-    canvas.height = 64;
-    
-    context.fillStyle = '#E8F4FD';
-    context.font = 'bold 24px monospace';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(text, 128, 32);
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
-    const sprite = new THREE.Sprite(material);
-    sprite.position.set(x, y, z);
-    sprite.scale.set(scale * 4, scale, 1);
-    
-    this.addObject(sprite);
+    return this.makeTag(text, x, y, z, { color: '#E8F4FD', size: 'sm' });
   }
 
   createColoredLabel(text, x, y, z, scale, color) {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = 512;
-    canvas.height = 128;
-    
-    context.fillStyle = color;
-    context.font = 'bold 48px monospace';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(text, 256, 64);
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(material);
-    sprite.position.set(x, y, z);
-    sprite.scale.set(scale * 6, scale * 1.5, 1);
-    
-    this.addObject(sprite);
+    return this.makeTag(text, x, y, z, { color, size: 'lg' });
   }
 
   clear() {
@@ -409,16 +586,123 @@ export default class SelectVisualizer extends BaseVisualizer {
 
   /**
    * GROUP BY Pipeline Visualization
-   * Shows the data transformation pipeline with animations
+   * Orchestrates the (already-written) FROM -> GROUP BY -> AGGREGATE -> ORDER BY
+   * stage animations in sequence, using real data fetched by the Run handler.
    */
   visualizeGroupByPipeline(tableName, groupByColumns, selectColumns, orderBy) {
-    // Show placeholder - user needs to run real SQL query
+    const rawGroupCol = (groupByColumns && groupByColumns[0]) || 'column';
+    const groupColumn = rawGroupCol.includes('.') ? rawGroupCol.split('.').pop() : rawGroupCol;
+
+    this.createColoredLabel('GROUP BY Pipeline', 0, 5, 0, 0.4, '#FFD700');
+
+    const sourceRows = this.lastQuery && this.lastQuery.sourceRows;
+    const resultRows = this.lastQuery && this.lastQuery.resultRows;
+    const resultColumns = this.lastQuery && this.lastQuery.resultColumns;
+    const stageIndex = (key) => this.stages.findIndex(s => s.key === key);
+    const setStage = (delay, key) => {
+      const i = stageIndex(key);
+      this.addAnimation(gsap.delayedCall(delay, () => { this.activeStageIndex = i; }));
+    };
+
+    // Pure GROUP BY (no JOIN): animate the full 4-stage pipeline from raw rows
+    if (sourceRows && sourceRows.length > 0) {
+      const aggregates = this.parseAggregates(selectColumns);
+      let groups = this.groupDataByColumn(sourceRows, groupColumn);
+      let aggregatedData = this.calculateAggregates(groups, aggregates);
+
+      // If a HAVING clause dropped groups, SQL.js's real result already
+      // reflects that - mirror it here so the animated bars match reality
+      // instead of showing every raw group.
+      if (resultRows && resultRows.length > 0 && resultColumns && resultColumns.includes(groupColumn)) {
+        const groupColIdx = resultColumns.indexOf(groupColumn);
+        const passingGroups = new Set(resultRows.map(r => String(r[groupColIdx])));
+        aggregatedData = aggregatedData.filter(d => passingGroups.has(String(d.group)));
+        const filteredGroups = {};
+        Object.keys(groups).forEach(k => { if (passingGroups.has(String(k))) filteredGroups[k] = groups[k]; });
+        groups = filteredGroups;
+      }
+
+      const clusterPositions = this.calculateClusterPositions(groups);
+
+      setStage(0, 'FROM');
+      const fromDuration = 0.5 + sourceRows.length * 0.1 + 1.0;
+      this.animateFromStage(tableName, sourceRows, 0);
+
+      const groupDelay = fromDuration;
+      const groupDuration = 1.2 + sourceRows.length * 0.05;
+      setStage(groupDelay, 'GROUP_BY');
+      this.animateGroupByStage(sourceRows, groupColumn, clusterPositions, groupDelay);
+
+      const aggDelay = groupDelay + groupDuration;
+      setStage(aggDelay, stageIndex('HAVING') !== -1 ? 'HAVING' : 'SELECT');
+      this.animateAggregateStage(groups, clusterPositions, aggregatedData, groupColumn, aggDelay);
+
+      if (orderBy && orderBy.length > 0) {
+        const orderDelay = aggDelay + 0.8 + 0.3;
+        setStage(orderDelay, 'ORDER_BY');
+        this.animateOrderByStage(aggregatedData, orderBy, clusterPositions, orderDelay);
+      }
+      return;
+    }
+
+    // JOIN + GROUP BY combo (raw source rows aren't enough to reconstruct the
+    // join client-side): jump straight to a bar chart driven by the real,
+    // already-aggregated query results SQL.js computed.
+    if (resultRows && resultRows.length > 0 && resultColumns) {
+      this.activeStageIndex = this.stages.length - 1;
+      this.visualizeResultBarChart(resultColumns, resultRows);
+      return;
+    }
+
+    // Nothing run yet - lightweight preview
     this.createTableHeader(tableName, 0, 0);
-    this.createLabel('Run GROUP BY query to see pipeline', 0, 0, 0, 0.25);
-    this.createColoredLabel('GROUP BY Pipeline', 0, 3, 0, 0.4, '#FFD700');
-    
-    // Show stage labels
-    this.createStageLabels(groupByColumns[0] || 'column', []);
+    this.createLabel('Run query to see pipeline', 0, 0, 0, 0.22);
+  }
+
+  /**
+   * Bar chart built directly from real, already-computed result rows.
+   * Assumes the last column is the aggregate value and the first is the label
+   * (true for every GROUP BY example in this app).
+   */
+  visualizeResultBarChart(resultColumns, resultRows) {
+    const labelIdx = 0;
+    const valueIdx = resultColumns.length - 1;
+    const spacing = 3;
+    const startX = -((resultRows.length - 1) * spacing) / 2;
+    const maxValue = Math.max(...resultRows.map(r => Number(r[valueIdx]) || 0), 1);
+
+    resultRows.forEach((row, idx) => {
+      const label = String(row[labelIdx]);
+      const value = Number(row[valueIdx]) || 0;
+      const x = startX + idx * spacing;
+      const barHeight = 0.4 + (value / maxValue) * 3.2;
+
+      const barGeom = new THREE.BoxGeometry(0.8, barHeight, 0.8);
+      const barMat = new THREE.MeshStandardMaterial({
+        color: 0x00FF88,
+        emissive: 0x00FF88,
+        emissiveIntensity: 0.4,
+        metalness: 0.4,
+        roughness: 0.6,
+        transparent: true,
+        opacity: 0.82
+      });
+      const bar = new THREE.Mesh(barGeom, barMat);
+      bar.position.set(x, barHeight / 2, 0);
+      bar.scale.y = 0;
+      this.addObject(bar);
+
+      const growAnim = gsap.to(bar.scale, {
+        y: 1,
+        duration: 0.8,
+        delay: idx * 0.12,
+        ease: "elastic.out(1, 0.5)"
+      });
+      this.addAnimation(growAnim);
+
+      this.createLabel(label, x, -0.4, 0.9, 0.14);
+      this.createLabel(`${resultColumns[valueIdx]}: ${row[valueIdx]}`, x, barHeight + 0.4, 0, 0.13);
+    });
   }
 
   /**
@@ -540,7 +824,9 @@ export default class SelectVisualizer extends BaseVisualizer {
       emissive: 0x00ADD8,
       emissiveIntensity: 0.5,
       metalness: 0.6,
-      roughness: 0.4
+      roughness: 0.4,
+      transparent: true,
+      opacity: 0.82
     });
     const table = new THREE.Mesh(tableGeom, tableMat);
     table.position.set(0, -2, 0);
@@ -669,9 +955,11 @@ export default class SelectVisualizer extends BaseVisualizer {
       const barMat = new THREE.MeshStandardMaterial({
         color: 0x00FF88,
         emissive: 0x00FF88,
-        emissiveIntensity: 0.3,
+        emissiveIntensity: 0.4,
         metalness: 0.4,
-        roughness: 0.6
+        roughness: 0.6,
+        transparent: true,
+        opacity: 0.82
       });
       const bar = new THREE.Mesh(barGeom, barMat);
       bar.position.set(pos.x, barHeight / 2, pos.z);
@@ -760,7 +1048,7 @@ export default class SelectVisualizer extends BaseVisualizer {
         
         // Also move the labels
         const labels = this.scene.children.filter(
-          obj => obj.type === 'Sprite' && 
+          obj => obj.isCSS2DObject &&
           Math.abs(obj.position.x - currentPositions[item.group].x) < 0.5
         );
         
@@ -781,32 +1069,23 @@ export default class SelectVisualizer extends BaseVisualizer {
     this.createColoredLabel(`ORDER BY ${orderDir}`, 0, 4, 0, 0.35, '#FF6B35');
   }
 
-  /**
-   * Create stage labels showing the pipeline
-   */
-  createStageLabels(groupColumn, aggregates) {
-    const pipeline = [
-      { text: '1. FROM', y: -3, color: '#00ADD8' },
-      { text: '2. GROUP BY', y: -3.4, color: '#FFD700' },
-      { text: '3. AGGREGATE', y: -3.8, color: '#00FF88' },
-      { text: '4. ORDER BY', y: -4.2, color: '#FF6B35' }
-    ];
-    
-    pipeline.forEach(stage => {
-      this.createColoredLabel(stage.text, -6, stage.y, 0, 0.18, stage.color);
-    });
-  }
-
   reset() {
     this.clear();
     this.lastQuery = null;
+    this.stages = [];
+    this.activeStageIndex = -1;
     super.reset();
   }
 
   tick(delta) {
-    if (this.viewMode === '3d') {
-      for (const table of this.tables.values()) {
+    const pulse = 0.25 + Math.sin(Date.now() * 0.002) * 0.15;
+    for (const table of this.tables.values()) {
+      if (this.viewMode === '3d') {
         table.rotation.y = Math.sin(Date.now() * 0.0005) * 0.05;
+      }
+      const header = table.children[0];
+      if (header && header.material) {
+        header.material.emissiveIntensity = pulse;
       }
     }
   }

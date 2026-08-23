@@ -116,6 +116,38 @@ gridGlow.rotation.x = -Math.PI / 2;
 gridGlow.position.y = -0.02;
 scene.add(gridGlow);
 
+// Starfield - gives the "Space"QL name an actual space backdrop instead of
+// flat black. Two layers (dim distant + brighter near) for a bit of depth.
+function createStarfield(count, radius, size, opacity) {
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const r = radius * (0.5 + Math.random() * 0.5);
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(Math.random() * 2 - 1);
+    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = Math.abs(r * Math.cos(phi)) + 4; // keep above the floor grid
+    positions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity,
+    depthWrite: false,
+  });
+  return new THREE.Points(geometry, material);
+}
+
+const stars = createStarfield(1600, 90, 0.5, 0.7);
+scene.add(stars);
+
+const starsNear = createStarfield(500, 45, 0.9, 0.9);
+starsNear.material.color.set(0x9fdcff);
+scene.add(starsNear);
+
 // Post-processing: Bloom Effect
 const composer = new EffectComposer(renderer);
 
@@ -164,7 +196,7 @@ function animate() {
 // Don't start animation automatically - let the main app control it
 
 // Export API
-export { scene, camera, renderer, labelRenderer, composer, controls, animate };
+export { scene, camera, renderer, labelRenderer, composer, controls, animate, stars, starsNear };
 
 // Helper function to get canvas element (for mounting)
 export function getCanvas() {

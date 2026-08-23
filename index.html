@@ -154,6 +154,121 @@
         color: #0d1b2a;
       }
 
+      /* CSS2D scene labels - crisp HTML tags rendered over the 3D scene */
+      .viz-tag {
+        position: relative;
+        pointer-events: none;
+        user-select: none;
+        white-space: pre-line;
+        text-align: center;
+        font-family: 'Courier New', monospace;
+        font-weight: 700;
+        color: var(--tag-color, #00add8);
+        background: rgba(13, 27, 42, 0.85);
+        border: 1px solid var(--tag-color, #00add8);
+        border-radius: 6px;
+        padding: 3px 9px;
+        box-shadow: 0 0 8px var(--tag-color, #00add8);
+        line-height: 1.35;
+        max-width: 220px;
+      }
+      .viz-tag--sm {
+        font-size: 10px;
+        padding: 2px 6px;
+        opacity: 0.92;
+      }
+      .viz-tag--md {
+        font-size: 12px;
+      }
+      .viz-tag--lg {
+        font-size: 15px;
+        padding: 5px 14px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+      }
+
+      /* SQL execution-order panel (SELECT queries only) */
+      .execution-order-panel {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 5;
+        background: rgba(15, 35, 55, 0.9);
+        border: 1px solid #1a3a5c;
+        border-radius: 10px;
+        padding: 10px 12px;
+        min-width: 180px;
+        max-width: 240px;
+        pointer-events: none;
+        display: none;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      }
+      .execution-order-panel.visible {
+        display: block;
+      }
+      .execution-order-title {
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+        font-weight: 700;
+        color: #7ec8e3;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin: 0 0 6px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #1a3a5c;
+      }
+      #execution-order-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .exec-step {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+        color: #4a6a8a;
+        padding: 2px 0;
+        transition: color 0.2s;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .exec-step-marker {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 1px solid #1a3a5c;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 9px;
+        flex-shrink: 0;
+        transition: all 0.2s;
+      }
+      .exec-step.done {
+        color: #7ec8e3;
+      }
+      .exec-step.done .exec-step-marker {
+        background: #1a3a5c;
+        border-color: #00add8;
+        color: #00add8;
+      }
+      .exec-step.active {
+        color: #00add8;
+        font-weight: 700;
+      }
+      .exec-step.active .exec-step-marker {
+        background: #00add8;
+        border-color: #00add8;
+        color: #0d1b2a;
+        box-shadow: 0 0 8px #00add8;
+      }
+
       /* SQL Helper Modal */
       #sql-helper-modal {
         display: none;
@@ -691,6 +806,12 @@
         >
           <!-- Canvas injected here by JS -->
 
+          <!-- SQL execution-order panel (only shown for SELECT queries) -->
+          <div id="execution-order-panel" class="execution-order-panel">
+            <div class="execution-order-title">Execution Order</div>
+            <ol id="execution-order-list"></ol>
+          </div>
+
           <!-- Camera hint overlay -->
           <div
             id="camera-hint"
@@ -835,6 +956,8 @@
         getCanvas,
         getLabelRenderer,
         setCameraMode,
+        stars,
+        starsNear,
       } from "./js/core/scene.js";
       import { parseSQL } from "./js/engine/parser.js";
       import OpenWorldEngine from "./js/engine/engine.js";
@@ -876,6 +999,60 @@
       // ── Engine ───────────────────────────────────────────────────────────
       const engine = new OpenWorldEngine(scene, camera);
 
+      // ── Execution-order panel sync ───────────────────────────────────────
+      // Mirrors SelectVisualizer's `stages`/`activeStageIndex` (only set for
+      // SELECT queries) into the on-screen checklist, highlighting whichever
+      // SQL clause is animating right now.
+      const executionPanel = document.getElementById("execution-order-panel");
+      const executionList = document.getElementById("execution-order-list");
+      let lastRenderedStages = null;
+      let lastRenderedIndex = null;
+
+      function syncExecutionPanel() {
+        const viz = engine.activeVisualizer === "select" ? engine.visualizers.select : null;
+        const stages = viz && viz.stages;
+
+        if (!stages || stages.length === 0) {
+          if (executionPanel.classList.contains("visible")) {
+            executionPanel.classList.remove("visible");
+          }
+          lastRenderedStages = null;
+          lastRenderedIndex = null;
+          return;
+        }
+
+        if (stages !== lastRenderedStages) {
+          executionList.innerHTML = "";
+          stages.forEach((stage, i) => {
+            const li = document.createElement("li");
+            li.className = "exec-step";
+            const marker = document.createElement("span");
+            marker.className = "exec-step-marker";
+            marker.textContent = String(i + 1);
+            const label = document.createElement("span");
+            label.className = "exec-step-label";
+            label.textContent = stage.label;
+            li.appendChild(marker);
+            li.appendChild(label);
+            executionList.appendChild(li);
+          });
+          lastRenderedStages = stages;
+          lastRenderedIndex = null;
+          executionPanel.classList.add("visible");
+        }
+
+        const activeIndex = viz.activeStageIndex;
+        if (activeIndex !== lastRenderedIndex) {
+          const items = executionList.children;
+          for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove("active", "done");
+            if (i < activeIndex) items[i].classList.add("done");
+            else if (i === activeIndex) items[i].classList.add("active");
+          }
+          lastRenderedIndex = activeIndex;
+        }
+      }
+
       // ── Animation loop ───────────────────────────────────────────────────
       const clock = new THREE.Clock();
       function animate() {
@@ -883,6 +1060,9 @@
         const delta = clock.getDelta();
         controls.update();
         engine.tick(delta);
+        stars.rotation.y += delta * 0.003;
+        starsNear.rotation.y -= delta * 0.005;
+        syncExecutionPanel();
         composer.render();  // Use composer for bloom effect
         labelRenderer.render(scene, camera);  // Render CSS2D labels
       }
@@ -898,6 +1078,8 @@
         btn.addEventListener("click", () => {
           editor.setValue(ex.code);
           menu.classList.remove("open");
+          // Let the debounced parse-preview populate the scene, then frame it
+          setTimeout(() => frameActiveVisualizer(), 400);
         });
         menu.appendChild(btn);
       });
@@ -1309,12 +1491,69 @@
         .getElementById("btn-clear-terminal")
         .addEventListener("click", clearTerminal);
 
+      // ── Camera auto-fit ──────────────────────────────────────────────────
+      // Frames whatever the active visualizer just drew, keeping the current
+      // viewing angle. Only called after an explicit Run / example load, not
+      // on every keystroke, so it never fights the user mid-orbit.
+      function frameActiveVisualizer(padding = 1.6) {
+        const active = engine.activeVisualizer;
+        const viz = active && engine.visualizers[active];
+        if (!viz || !viz.objects || viz.objects.length === 0) return;
+
+        const box = new THREE.Box3();
+        viz.objects.forEach((obj) => box.expandByObject(obj));
+        if (box.isEmpty()) return;
+
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z, 1);
+        const fov = camera.fov * (Math.PI / 180);
+        let dist = (maxDim / 2 / Math.tan(fov / 2)) * padding;
+        dist = Math.min(Math.max(dist, controls.minDistance), controls.maxDistance);
+
+        const dir = new THREE.Vector3().subVectors(camera.position, controls.target);
+        if (dir.lengthSq() < 0.0001) dir.set(5, 5, 8);
+        dir.normalize();
+        const newPos = center.clone().add(dir.multiplyScalar(dist));
+
+        gsap.to(controls.target, {
+          x: center.x,
+          y: center.y,
+          z: center.z,
+          duration: 0.9,
+          ease: "power2.inOut",
+        });
+        gsap.to(camera.position, {
+          x: newPos.x,
+          y: newPos.y,
+          z: newPos.z,
+          duration: 0.9,
+          ease: "power2.inOut",
+        });
+      }
+
+      // ── Raw row fetch helper (for JOIN / GROUP BY / UPDATE / DELETE) ──────
+      // Converts a sql.js {columns, values} result into plain row objects so
+      // visualizers can look values up by column name.
+      function rowsOf(table, whereClause) {
+        const sql = whereClause
+          ? `SELECT * FROM ${table} WHERE ${whereClause}`
+          : `SELECT * FROM ${table}`;
+        const result = db.exec(sql);
+        if (!result[0]) return [];
+        const { columns, values } = result[0];
+        return values.map((row) =>
+          Object.fromEntries(columns.map((c, i) => [c, row[i]])),
+        );
+      }
+
       // ── Run button (manual execution with real SQL) ──────────────────────
       document.getElementById("btn-run").addEventListener("click", async () => {
         if (!window.editor || !db) return;
 
         const code = editor.getValue().trim();
         const statusEl = document.getElementById("parse-status");
+        const upperCode = code.toUpperCase();
 
         try {
           engine.reset();
@@ -1324,20 +1563,40 @@
           printToTerminal(`> ${code}`, "#7EC8E3");
           printToTerminal('', '#E8F4FD'); // Empty line
 
+          // UPDATE/DELETE: capture the real affected rows BEFORE the
+          // mutation runs, so the visualization matches exactly what
+          // SQL.js is about to change - not a guess at row indices.
+          let mutationRows = null;
+          if (upperCode.startsWith('UPDATE') || upperCode.startsWith('DELETE')) {
+            const tableMatch = code.match(/(?:UPDATE|DELETE\s+FROM)\s+(\w+)/i);
+            if (tableMatch) {
+              const table = tableMatch[1];
+              const whereMatch = code.match(/WHERE\s+(.+?)(?:;|$)/is);
+              try {
+                const allRows = rowsOf(table);
+                const affectedRows = whereMatch ? rowsOf(table, whereMatch[1].trim()) : allRows;
+                mutationRows = { allRows, affectedRows };
+              } catch (e) {
+                mutationRows = null;
+              }
+            }
+          }
+
           const results = db.exec(code);
+          const parsed = parseSQL(code);
 
           if (results.length > 0) {
             // Display results in terminal
             results.forEach((result, idx) => {
               const { columns, values } = result;
-              
+
               printToTerminal(`Query ${idx + 1} Results:`, "#00ADD8");
               printToTerminal(`─────────────────────────────────────`, "#1A3A5C");
-              
+
               // Header
               printToTerminal(columns.join(' | '), "#69FF47");
               printToTerminal('─'.repeat(columns.join(' | ').length), "#1A3A5C");
-              
+
               // Rows
               if (values.length === 0) {
                 printToTerminal('(no rows)', "#4A6A8A");
@@ -1350,19 +1609,37 @@
               }
             });
 
-            // Parse for visualization
-            const parsed = parseSQL(code);
-            
             // Enhance parsed data with real results
             if (parsed.type === 'SELECT' && parsed.selects.length > 0 && results[0]) {
-              parsed.selects[0].resultColumns = results[0].columns;
-              parsed.selects[0].resultRows = results[0].values;
+              const q = parsed.selects[0];
+              q.resultColumns = results[0].columns;
+              q.resultRows = results[0].values;
+
+              const hasJoin = q.joins && q.joins.length > 0;
+              const hasGroupBy = q.groupBy && q.groupBy.length > 0;
+
+              try {
+                if (hasJoin && !hasGroupBy) {
+                  q.leftRows = rowsOf(q.from);
+                  q.rightRows = rowsOf(q.joins[0].table);
+                } else if (!hasJoin) {
+                  // Raw rows for the execution-order pipeline (plain SELECT)
+                  // and for the GROUP BY pipeline's "before" state.
+                  q.sourceRows = rowsOf(q.from);
+
+                  if (q.where && q.where.length > 0) {
+                    const whereMatch = code.match(/WHERE\s+(.+?)(?:\bGROUP\s+BY\b|\bORDER\s+BY\b|\bLIMIT\b|\bHAVING\b|;|$)/is);
+                    q.filteredRows = whereMatch ? rowsOf(q.from, whereMatch[1].trim()) : q.sourceRows;
+                  } else {
+                    q.filteredRows = q.sourceRows;
+                  }
+                }
+              } catch (e) {
+                // Leave the extra fields unset - visualizer falls back gracefully
+              }
             }
-            
-            engine.update(parsed);
           } else {
             // Non-SELECT queries (INSERT, UPDATE, DELETE, CREATE, etc.)
-            const upperCode = code.toUpperCase();
             if (upperCode.startsWith('INSERT')) {
               printToTerminal('✓ Row inserted successfully', "#69FF47");
             } else if (upperCode.startsWith('UPDATE')) {
@@ -1375,10 +1652,20 @@
               printToTerminal('✓ Query executed successfully', "#69FF47");
             }
 
-            // Still parse and visualize
-            const parsed = parseSQL(code);
-            engine.update(parsed);
+            if (mutationRows && parsed.type === 'UPDATE' && parsed.updates[0]) {
+              parsed.updates[0].allRows = mutationRows.allRows;
+              parsed.updates[0].affectedRows = mutationRows.affectedRows;
+            } else if (mutationRows && parsed.type === 'DELETE' && parsed.deletes[0]) {
+              parsed.deletes[0].allRows = mutationRows.allRows;
+              parsed.deletes[0].affectedRows = mutationRows.affectedRows;
+            }
           }
+
+          engine.update(parsed);
+          frameActiveVisualizer();
+          // Re-frame once multi-stage entrance animations (GROUP BY pipeline,
+          // JOIN row reveals) have finished unfolding
+          setTimeout(() => frameActiveVisualizer(), 1800);
 
           statusEl.textContent = "✅ Query executed";
           statusEl.className = "text-[#69FF47]";

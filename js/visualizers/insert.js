@@ -35,7 +35,11 @@ export default class InsertVisualizer extends BaseVisualizer {
     const headerMat = new THREE.MeshStandardMaterial({
       color: 0x00ADD8,
       metalness: 0.3,
-      roughness: 0.7
+      roughness: 0.7,
+      emissive: 0x00ADD8,
+      emissiveIntensity: 0.25,
+      transparent: true,
+      opacity: 0.82
     });
     const header = new THREE.Mesh(headerGeom, headerMat);
     header.position.y = 1.5;
@@ -116,33 +120,9 @@ export default class InsertVisualizer extends BaseVisualizer {
   }
 
   createLabel(text, x, y, z, scale = 0.2) {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = 512;
-    canvas.height = 128;
-    
-    context.fillStyle = '#00FF88';
-    context.font = 'bold 28px monospace';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(text, 256, 64);
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
-    const sprite = new THREE.Sprite(material);
-    sprite.position.set(x, y, z);
-    sprite.scale.set(scale * 6, scale * 1.5, 1);
-    
-    // Fade in
-    sprite.material.opacity = 0;
-    const anim = gsap.to(sprite.material, {
-      opacity: 1,
-      duration: 0.5,
-      delay: 0.8
+    return this.makeTag(text, x, y, z, {
+      color: '#00FF88', size: scale >= 0.3 ? 'lg' : 'md', fade: true, fadeDelay: 0.8,
     });
-    this.addAnimation(anim);
-    
-    this.addObject(sprite);
   }
 
   clear() {

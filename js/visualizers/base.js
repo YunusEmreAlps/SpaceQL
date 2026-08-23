@@ -8,6 +8,7 @@
  */
 
 import * as THREE from 'three';
+import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
 export default class BaseVisualizer {
   constructor(scene, camera) {
@@ -155,16 +156,6 @@ export default class BaseVisualizer {
   }
 
   /**
-   * Reset visualizer to initial state
-   * Override this in subclass for custom reset behavior
-   */
-  reset() {
-    this.clear();
-    this.paused = false;
-    this.speed = 1.0;
-  }
-
-  /**
    * Clean up all scene objects when switching modes
    */
   dispose() {
@@ -172,7 +163,8 @@ export default class BaseVisualizer {
   }
 
   /**
-   * Reset the visualizer to initial state
+   * Reset visualizer to initial state
+   * Override this in subclass for custom reset behavior
    */
   reset() {
     this.dispose();
@@ -181,46 +173,135 @@ export default class BaseVisualizer {
   }
 
   /**
-   * Helper: Create a basic box mesh with Go type color
-   * @param {string} goType - Go type (int, string, bool, etc.)
-   * @param {number} width 
-   * @param {number} height 
-   * @param {number} depth 
-   * @returns {THREE.Mesh}
+   * Stable identity key for a fetched row object. Uses the first column,
+   * which is the primary key for every table in this app's schema - good
+   * enough to correlate "all rows" against a separately-fetched "matching
+   * WHERE" subset without a real join key.
+   * @param {Object} row
+   * @returns {string}
    */
-  createTypeBox(goType, width = 1, height = 1, depth = 0.3) {
-    const geometry = new THREE.BoxGeometry(width, height, depth);
-    const color = this.getTypeColor(goType);
-    const material = new THREE.MeshStandardMaterial({ 
-      color,
-      roughness: 0.7,
-      metalness: 0.3,
-    });
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    return mesh;
+  rowKey(row) {
+    const firstKey = Object.keys(row)[0];
+    return String(row[firstKey]);
   }
 
   /**
-   * Get color for a Go type
-   * @param {string} goType 
-   * @returns {number} Three.js color hex
+   * Short "col: value  col: value" preview string for a row object, skipping
+   * the leading id-like column when there's more informative data to show.
+   * @param {Object} row
+   * @param {number} count - max columns to include
+   * @returns {string}
    */
-  getTypeColor(goType) {
-    const TYPE_COLORS = {
-      int:     0x4FC3F7, // Blue
-      float:   0x4FC3F7,
-      string:  0xFFD54F, // Yellow
-      bool:    0x81C784, // Green
-      func:    0xCE93D8, // Purple
-      struct:  0xFF8A65, // Orange
-      chan:    0x00E5FF, // Cyan
-      pointer: 0xEF9A9A, // Pink
-      error:   0xEF5350, // Red
-      map:     0xA5D6A7, // Light green
-      slice:   0x80DEEA, // Light cyan
-    };
-    return TYPE_COLORS[goType] || 0x888888; // Gray fallback
+  rowPreview(row, count = 2) {
+    const keys = Object.keys(row);
+    const parts = keys.length > 1 ? keys.slice(1, 1 + count) : keys.slice(0, count);
+    return parts.map(k => `${k}: ${row[k]}`).join('  ');
+  }
+
+  /**
+   * Shared canvas-sprite label builder used by every visualizer's
+   * createLabel/createSmallLabel/createColoredLabel wrappers.
+   * Kept flexible via options so each visualizer keeps its existing look.
+   * @param {string} text
+   * @param {number} x
+   * @param {number} y
+   * @param {number} z
+   * @param {Object} opts
+   * @returns {THREE.Sprite}
+   */
+  makeLabelSprite(text, x, y, z, opts = {}) {
+    const {
+      scale = 0.2,
+      color = '#00ADD8',
+      fontSize = 28,
+      canvasWidth = 512,
+      canvasHeight = 128,
+      scaleMultX = 6,
+      scaleMultY = 1.5,
+      fade = false,
+      fadeDelay = 0.8,
+      fadeDuration = 0.5,
+    } = opts;
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+
+    context.fillStyle = color;
+    context.font = `bold ${fontSize}px monospace`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+
+    // Support multi-line labels (split on \n)
+    const lines = String(text).split('\n');
+    const lineHeight = fontSize + 8;
+    const startY = canvasHeight / 2 - ((lines.length - 1) * lineHeight) / 2;
+    lines.forEach((line, i) => {
+      context.fillText(line, canvasWidth / 2, startY + i * lineHeight);
+    });
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(x, y, z);
+    sprite.scale.set(scale * scaleMultX, scale * scaleMultY, 1);
+
+    if (fade) {
+      sprite.material.opacity = 0;
+      const anim = gsap.to(sprite.material, {
+        opacity: 1,
+        duration: fadeDuration,
+        delay: fadeDelay,
+      });
+      this.addAnimation(anim);
+    }
+
+    this.addObject(sprite);
+    return sprite;
+  }
+
+  /**
+   * Crisp HTML label via CSS2DObject - constant screen size, never blurry or
+   * distance-scaled, unlike the canvas-sprite labels above. Preferred for
+   * all new label call sites; `clear()`/`removeObject()` already dispose it
+   * correctly since CSS2DObject removes its own DOM element when detached
+   * from the scene (three.js handles this internally on the 'removed' event).
+   * @param {string} text
+   * @param {number} x
+   * @param {number} y
+   * @param {number} z
+   * @param {Object} opts
+   * @returns {CSS2DObject}
+   */
+  makeTag(text, x, y, z, opts = {}) {
+    const {
+      color = '#00ADD8',
+      size = 'md', // 'sm' | 'md' | 'lg'
+      fade = false,
+      fadeDelay = 0.3,
+      fadeDuration = 0.4,
+    } = opts;
+
+    const el = document.createElement('div');
+    el.className = `viz-tag viz-tag--${size}`;
+    el.style.setProperty('--tag-color', color);
+    el.textContent = text;
+
+    const tag = new CSS2DObject(el);
+    tag.position.set(x, y, z);
+
+    if (fade) {
+      el.style.opacity = '0';
+      const anim = gsap.to(el, {
+        opacity: 1,
+        duration: fadeDuration,
+        delay: fadeDelay,
+      });
+      this.addAnimation(anim);
+    }
+
+    this.addObject(tag);
+    return tag;
   }
 }

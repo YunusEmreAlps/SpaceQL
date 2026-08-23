@@ -8,12 +8,12 @@
 const PATTERNS = {
   // SELECT patterns
   select:       /SELECT\s+(DISTINCT\s+)?(.+?)\s+FROM\s+(\w+)/i,
-  where:        /WHERE\s+(.+?)(?:GROUP\s+BY|ORDER\s+BY|LIMIT|HAVING|;|$)/is,
-  join:         /(INNER\s+JOIN|LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|FULL\s+(?:OUTER\s+)?JOIN|CROSS\s+JOIN|JOIN)\s+(\w+)\s+ON\s+(.+?)(?:WHERE|INNER|LEFT|RIGHT|FULL|CROSS|JOIN|GROUP|ORDER|LIMIT|;|$)/gis,
-  groupBy:      /GROUP\s+BY\s+(.+?)(?:HAVING|ORDER\s+BY|LIMIT|;|$)/is,
-  orderBy:      /ORDER\s+BY\s+(.+?)(?:LIMIT|;|$)/is,
+  where:        /WHERE\s+(.+?)(?:\bGROUP\s+BY\b|\bORDER\s+BY\b|\bLIMIT\b|\bHAVING\b|;|$)/is,
+  join:         /(INNER\s+JOIN|LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|FULL\s+(?:OUTER\s+)?JOIN|CROSS\s+JOIN|JOIN)\s+(\w+)\s+ON\s+(.+?)(?:\bWHERE\b|\bINNER\b|\bLEFT\b|\bRIGHT\b|\bFULL\b|\bCROSS\b|\bJOIN\b|\bGROUP\b|\bORDER\b|\bLIMIT\b|;|$)/gis,
+  groupBy:      /GROUP\s+BY\s+(.+?)(?:\bHAVING\b|\bORDER\s+BY\b|\bLIMIT\b|;|$)/is,
+  orderBy:      /ORDER\s+BY\s+(.+?)(?:\bLIMIT\b|;|$)/is,
   limit:        /LIMIT\s+(\d+)(?:\s+OFFSET\s+(\d+))?/i,
-  having:       /HAVING\s+(.+?)(?:ORDER\s+BY|LIMIT|;|$)/is,
+  having:       /HAVING\s+(.+?)(?:\bORDER\s+BY\b|\bLIMIT\b|;|$)/is,
   
   // INSERT patterns
   insert:       /INSERT\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/is,

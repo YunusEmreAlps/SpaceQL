@@ -56,7 +56,9 @@ export default class CreateTableVisualizer extends BaseVisualizer {
       metalness: 0.4,
       roughness: 0.6,
       emissive: 0x00ADD8,
-      emissiveIntensity: 0.3
+      emissiveIntensity: 0.3,
+      transparent: true,
+      opacity: 0.82
     });
     const header = new THREE.Mesh(headerGeom, headerMat);
     header.position.y = 1;
@@ -139,37 +141,9 @@ export default class CreateTableVisualizer extends BaseVisualizer {
   }
 
   createLabel(text, x, y, z, scale = 0.2, delay = 0) {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = 256;
-    canvas.height = 128;
-    
-    context.fillStyle = '#00ADD8';
-    context.font = 'bold 24px monospace';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    
-    const lines = text.split('\n');
-    lines.forEach((line, i) => {
-      context.fillText(line, 128, 40 + i * 30);
+    return this.makeTag(text, x, y, z, {
+      color: '#00ADD8', size: scale >= 0.3 ? 'lg' : 'sm', fade: true, fadeDelay: 0.8 + delay * 0.1,
     });
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
-    const sprite = new THREE.Sprite(material);
-    sprite.position.set(x, y, z);
-    sprite.scale.set(scale * 4, scale * 2, 1);
-    
-    // Fade in
-    sprite.material.opacity = 0;
-    const anim = gsap.to(sprite.material, {
-      opacity: 1,
-      duration: 0.5,
-      delay: 0.8 + delay * 0.1
-    });
-    this.addAnimation(anim);
-    
-    this.addObject(sprite);
   }
 
   clear() {
